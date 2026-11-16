@@ -41,6 +41,7 @@
     bindKeys();
     bindVisibility();
     bindFirstInteraction();
+    bindOrientationLock();
     installTestHarness();
 
     lastTime = performance.now();
@@ -159,6 +160,56 @@
     window.addEventListener('pointerdown', unlock, { passive: true });
     window.addEventListener('keydown', unlock);
     window.addEventListener('touchstart', unlock, { passive: true });
+  }
+
+  /* ---------------- mobile: default to landscape ---------------- */
+
+  // 手机浏览器不允许在非用户手势里锁横屏，也不保证支持 orientation.lock，
+  // 所以策略是：用户点「开始任务」时（合法的用户手势）请求全屏 + 尝试锁横屏；
+  // 任何一步失败都静默降级，页面本身在竖屏下也照常可用（只是会提示旋转）。
+  function requestLandscape() {
+    if (!NO.Utils.isTouchDevice()) return;
+    const root = document.documentElement;
+    const requestFullscreen = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+    const applyLock = function () {
+      const orientation = window.screen && window.screen.orientation;
+      if (orientation && typeof orientation.lock === 'function') {
+        try {
+          const result = orientation.lock('landscape');
+          if (result && typeof result.catch === 'function') result.catch(function () {});
+        } catch (err) {
+          /* 浏览器拒绝锁屏：忽略，玩家仍可旋转设备 */
+        }
+      }
+    };
+    if (!document.fullscreenElement && requestFullscreen) {
+      try {
+        const result = requestFullscreen.call(root);
+        if (result && typeof result.then === 'function') {
+          result.then(applyLock).catch(function () { applyLock(); });
+          return;
+        }
+      } catch (err) {
+        /* 全屏被拒绝：直接尝试锁屏 */
+      }
+    }
+    applyLock();
+  }
+
+  function bindOrientationLock() {
+    if (!NO.Utils.isTouchDevice()) return;
+    const start = document.getElementById('btn-start');
+    const restart = document.getElementById('btn-result-restart');
+    const retry = document.getElementById('btn-pause-restart');
+    [start, restart, retry].forEach(function (button) {
+      if (!button) return;
+      button.addEventListener('click', requestLandscape, { passive: true });
+    });
+    // 首次触摸任何位置也顺手试一次，覆盖「直接按回车/触屏连点」的路径。
+    window.addEventListener('touchstart', function once() {
+      window.removeEventListener('touchstart', once);
+      requestLandscape();
+    }, { passive: true });
   }
 
   /* ---------------- main loop ---------------- */

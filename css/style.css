@@ -624,6 +624,19 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--cyan); outl
 .hud-subline { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.1em; color: rgba(127, 148, 180, 0.6); }
 .hud-subline span:last-child { color: var(--green); }
 
+/* ---- 成长计量条：把「看不见的数值成长」变成看得见的条 ---- */
+.meter-stack { margin-top: 7px; display: flex; flex-direction: column; gap: 3px; }
+.meter-row { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); }
+.meter-label { font-size: 7px; letter-spacing: 0.08em; color: rgba(127, 148, 180, 0.72); width: 24px; flex: none; }
+.meter-bar { position: relative; flex: 1; height: 4px; background: rgba(12, 20, 38, 0.9); border: 1px solid rgba(64, 96, 148, 0.3); overflow: hidden; }
+.meter-fill { height: 100%; width: 0%; transition: width 0.18s ease-out; }
+.meter-dmg { background: linear-gradient(90deg, #ff8a3d, #ffd166); box-shadow: 0 0 8px rgba(255, 209, 102, 0.45); }
+.meter-rate { background: linear-gradient(90deg, #00e5ff, #7cf8ff); box-shadow: 0 0 8px rgba(0, 229, 255, 0.4); }
+.meter-crit { background: linear-gradient(90deg, #965bff, #d9b8ff); box-shadow: 0 0 8px rgba(150, 91, 255, 0.45); }
+.meter-mag { background: linear-gradient(90deg, #5cffb2, #b6ffe0); box-shadow: 0 0 8px rgba(92, 255, 178, 0.4); }
+.meter-emp { background: linear-gradient(90deg, #ff365e, #ff9bb2); box-shadow: 0 0 8px rgba(255, 54, 94, 0.45); }
+.meter-val { font-size: 7px; color: rgba(196, 220, 250, 0.82); min-width: 34px; text-align: right; letter-spacing: 0.04em; }
+
 .hud-center {
   justify-self: center;
   display: flex;
@@ -1472,6 +1485,13 @@ kbd.wide { min-width: 55px; }
 
 @media (orientation: landscape) and (max-height: 520px) {
   .hud-top { padding-top: calc(var(--safe-top) + 7px); }
+  /* 矮屏横屏：计量条改成两列紧凑排布，避免左侧面板吃掉太多画面高度 */
+  .meter-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin-top: 5px; }
+  .meter-row { gap: 4px; }
+  .meter-label { width: 21px; font-size: 6px; }
+  .meter-val { min-width: 30px; font-size: 6px; }
+  .meter-bar { height: 3px; }
+  .hud-subline { margin-top: 4px; }
   .boss-panel { top: calc(var(--safe-top) + 61px); }
   .xp-wrap { bottom: calc(var(--safe-bottom) + 5px); }
   .hud-bottom { bottom: calc(var(--safe-bottom) + 20px); }

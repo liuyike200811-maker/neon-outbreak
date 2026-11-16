@@ -251,18 +251,21 @@
       });
     }
 
-    damageText(x, y, amount, color, crit) {
+    damageText(x, y, amount, color, crit, scale) {
       const t = this.texts[this.textCursor];
       this.textCursor = (this.textCursor + 1) % this.maxTexts;
+      const power = typeof scale === 'number' ? Math.max(0.6, scale) : 1;
       t.active = true;
-      t.x = x + U.rand(-4, 4);
+      t.x = x + U.rand(-5, 5);
       t.y = y - 12;
-      t.vx = U.rand(-14, 14);
-      t.vy = crit ? -75 : -54;
-      t.life = t.maxLife = crit ? 0.9 : 0.7;
+      t.vx = crit ? U.rand(-38, 38) : U.rand(-16, 16);
+      t.vy = crit ? -95 : -58;
+      t.life = t.maxLife = crit ? 1.05 : 0.72;
       t.text = String(Math.max(1, Math.round(amount)));
       t.color = color || '#ffffff';
-      t.size = crit ? 23 : 13;
+      // 暴击数字明显放大：普通 15px，暴击 34px，再乘上伤害量带来的轻微缩放，
+      // 让高伤暴击在满屏粒子中依然一眼可见。
+      t.size = crit ? 34 * power : 15 * power;
       t.crit = Boolean(crit);
     }
 

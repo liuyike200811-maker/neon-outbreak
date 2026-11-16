@@ -43,7 +43,10 @@
         'upgrade-level-label', 'result-kicker', 'result-title', 'result-sub', 'result-grade',
         'result-grade-text', 'res-time', 'res-kills', 'res-level', 'res-score', 'res-best',
         'result-newrecord', 'toggle-sound', 'volume-slider', 'volume-value', 'toggle-shake',
-        'storage-status', 'fx-flash', 'boss-intro-name', 'boss-intro-sub', 'boss-intro-phase'
+        'storage-status', 'fx-flash', 'boss-intro-name', 'boss-intro-sub', 'boss-intro-phase',
+        'meter-stack', 'meter-damage', 'meter-damage-val', 'meter-rate', 'meter-rate-val',
+        'meter-crit', 'meter-crit-val', 'meter-magnet', 'meter-magnet-val', 'meter-emp-row',
+        'meter-emp', 'meter-emp-val'
       ];
       for (let i = 0; i < ids.length; i += 1) {
         this.el[ids[i]] = document.getElementById(ids[i]);
@@ -529,8 +532,72 @@
       const dashButton = this.el['btn-touch-dash'];
       if (dashButton) dashButton.classList.toggle('cooling', !dashReady);
 
+      this.updateMeters();
       this.updateModules();
       this.updateBossBar();
+    }
+
+    // 成长计量条：把输出/攻速/暴击/磁力/EMP 这些内部数值实时可视化，
+    // 让玩家每次升级后都能立刻看到「我变强了」。
+    updateMeters() {
+      const g = this.game;
+      const p = g.player;
+      if (!p) return;
+      const cache = this.hudCache;
+
+      const dmgMult = (p.damage || 0) / (p.baseDamage || 12);
+      const dmgPct = Math.round(U.clamp((dmgMult - 1) / 3, 0, 1) * 100);
+      const dmgText = '×' + dmgMult.toFixed(2);
+      if (cache.meterDmg !== dmgPct + dmgText) {
+        cache.meterDmg = dmgPct + dmgText;
+        if (this.el['meter-damage']) this.el['meter-damage'].style.width = Math.max(4, dmgPct) + '%';
+        if (this.el['meter-damage-val']) this.el['meter-damage-val'].textContent = dmgText;
+      }
+
+      const rate = 1 / Math.max(0.08, p.attackInterval);
+      const ratePct = Math.round(U.clamp((rate - 1.5) / 9, 0, 1) * 100);
+      const rateText = rate.toFixed(1) + '/s';
+      if (cache.meterRate !== ratePct + rateText) {
+        cache.meterRate = ratePct + rateText;
+        if (this.el['meter-rate']) this.el['meter-rate'].style.width = Math.max(4, ratePct) + '%';
+        if (this.el['meter-rate-val']) this.el['meter-rate-val'].textContent = rateText;
+      }
+
+      const critPct = Math.round(U.clamp(p.critChance, 0, 1) * 100);
+      const critText = critPct + '%';
+      if (cache.meterCrit !== critPct) {
+        cache.meterCrit = critPct;
+        if (this.el['meter-crit']) this.el['meter-crit'].style.width = Math.max(3, Math.round((p.critChance / 0.7) * 100)) + '%';
+        if (this.el['meter-crit-val']) this.el['meter-crit-val'].textContent = critText;
+      }
+
+      const mag = Math.round(p.pickupRange || 0);
+      if (cache.meterMag !== mag) {
+        cache.meterMag = mag;
+        if (this.el['meter-magnet']) this.el['meter-magnet'].style.width = Math.max(3, Math.round((mag / 380) * 100)) + '%';
+        if (this.el['meter-magnet-val']) this.el['meter-magnet-val'].textContent = String(mag);
+      }
+
+      const empRow = this.el['meter-emp-row'];
+      if (empRow) {
+        const hasEmp = (p.empLevel || 0) > 0;
+        const shouldShow = hasEmp;
+        if (cache.meterEmpShown !== shouldShow) {
+          cache.meterEmpShown = shouldShow;
+          empRow.classList.toggle('hidden', !shouldShow);
+        }
+        if (hasEmp) {
+          const ratio = U.clamp(1 - p.empTimer / 4.6, 0, 1);
+          const empPct = Math.round(ratio * 100);
+          if (cache.meterEmp !== empPct) {
+            cache.meterEmp = empPct;
+            if (this.el['meter-emp']) this.el['meter-emp'].style.width = empPct + '%';
+            if (this.el['meter-emp-val']) {
+              this.el['meter-emp-val'].textContent = ratio >= 1 ? 'READY' : (4.6 - p.empTimer).toFixed(1) + 's';
+            }
+          }
+        }
+      }
     }
 
     updateModules() {
@@ -592,6 +659,11 @@
       this.moduleSignature = '';
       const fill = this.el['hp-fill'];
       if (fill) fill.style.width = '100%';
+      const meterIds = ['meter-damage', 'meter-rate', 'meter-crit', 'meter-magnet', 'meter-emp'];
+      for (let i = 0; i < meterIds.length; i += 1) {
+        const node = this.el[meterIds[i]];
+        if (node) node.style.width = '0%';
+      }
     }
   }
 

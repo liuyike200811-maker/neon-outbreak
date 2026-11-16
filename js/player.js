@@ -45,6 +45,12 @@
       this.dashTimer = 0;
       this.dashDirX = 0;
       this.dashDirY = -1;
+      // 冲刺无敌帧：冲刺本体 0.18s 全程无敌，结束后再留 0.14s 的落地护盾，
+      // 让「掐时机冲刺穿弹幕」成为可靠的防守手段，而不是刚落地就被子弹收掉。
+      this.dashGrace = 0;
+      this.dashGraceDuration = 0.14;
+      // 完美闪避统计：冲刺期间被相位消除的敌方子弹数，用于打击反馈与结算。
+      this.perfectDodges = 0;
       this.invuln = 0;
       this.flashTimer = 0;
       this.recoil = 0;
@@ -92,7 +98,12 @@
     }
 
     isInvulnerable() {
-      return this.invuln > 0 || this.dashTimer > 0;
+      return this.invuln > 0 || this.dashTimer > 0 || this.dashGrace > 0;
+    }
+
+    // 只有「冲刺相位」状态才会吞噬敌方子弹，普通受击无敌不会。
+    isPhasing() {
+      return this.dashTimer > 0 || this.dashGrace > 0;
     }
 
     heal(amount) {
@@ -109,7 +120,7 @@
     }
 
     hurt(amount, sourceX, sourceY) {
-      if (this.dashTimer > 0 || this.invuln > 0) return false;
+      if (this.isInvulnerable()) return false;
       if (!this.game || this.game.state !== 'PLAYING') return false;
       const damage = Math.max(1, Math.round(amount));
       this.hp = Math.max(0, this.hp - damage);
@@ -146,10 +157,23 @@
       this.dashDirX = direction.x;
       this.dashDirY = direction.y;
       this.dashTimer = this.dashDuration;
+      this.dashGrace = 0;
       this.dashCooldownTimer = this.dashCooldown;
       this.trail.length = 0;
       this.game.onDash();
       return true;
+    }
+
+    // 被冲刺无敌帧「相位吞噬」的敌方子弹回调：产生绿色消解特效而不是无声消失，
+    // 让玩家明确感知到「这一下我是靠冲刺躲掉的」。
+    absorbProjectile(x, y) {
+      this.perfectDodges += 1;
+      const game = this.game;
+      game.particles.burst(x, y, '#5cffb2', 7, 120, 2.4, 0.32, 'spark');
+      game.particles.ring(x, y, '#5cffb2', 4, 20, 0.28, 1.4);
+      if (this.perfectDodges % 12 === 0) {
+        game.particles.label(x, y - 18, 'PHASE', '#5cffb2', 12);
+      }
     }
 
     update(dt) {
@@ -164,6 +188,9 @@
       if (this.muzzleFlash > 0) this.muzzleFlash = Math.max(0, this.muzzleFlash - dt);
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 8);
       if (this.dashCooldownTimer > 0) this.dashCooldownTimer = Math.max(0, this.dashCooldownTimer - dt);
+      if (this.dashGrace > 0 && this.dashTimer <= 0) {
+        this.dashGrace = Math.max(0, this.dashGrace - dt);
+      }
       this.contactPulse += dt;
 
       const wantsDash = NO.Input.consume('Space');
@@ -175,6 +202,7 @@
 
       if (this.dashTimer > 0) {
         this.dashTimer = Math.max(0, this.dashTimer - dt);
+        if (this.dashTimer <= 0) this.dashGrace = this.dashGraceDuration;
         const speed = this.speed * 3;
         this.x += this.dashDirX * speed * dt;
         this.y += this.dashDirY * speed * dt;
@@ -344,13 +372,14 @@
       ctx.ellipse(2, 7, 21, 12, 0, 0, TAU);
       ctx.fill();
 
-      if (this.dashTimer > 0 || this.invuln > 0) {
-        ctx.globalAlpha = this.dashTimer > 0 ? 0.7 : 0.3 + Math.sin(t * 22) * 0.12;
-        ctx.strokeStyle = this.dashTimer > 0 ? '#5cffb2' : '#00e5ff';
-        ctx.lineWidth = 1.4;
+      if (this.isInvulnerable()) {
+        const phasing = this.isPhasing();
+        ctx.globalAlpha = phasing ? 0.72 : 0.3 + Math.sin(t * 22) * 0.12;
+        ctx.strokeStyle = phasing ? '#5cffb2' : '#00e5ff';
+        ctx.lineWidth = phasing ? 1.8 : 1.4;
         ctx.setLineDash([4, 5]);
         ctx.beginPath();
-        ctx.arc(0, 0, 24 + Math.sin(t * 6) * 1.5, 0, TAU);
+        ctx.arc(0, 0, (phasing ? 26 : 24) + Math.sin(t * 6) * 1.5, 0, TAU);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;

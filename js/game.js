@@ -985,7 +985,9 @@
             enemy.y - enemy.radius - 4,
             Math.round(bullet.damage),
             bullet.crit ? '#ffd166' : '#bff7ff',
-            bullet.crit
+            bullet.crit,
+            // 伤害越高数字越大：暴击基础 1.35 倍，再按伤害量微调，重击更有存在感。
+            bullet.crit ? 1.35 + Math.min(0.5, bullet.damage / 220) : 1
           );
           this.audio.play(bullet.crit ? 'crit' : 'hit');
           if (bullet.pierce > 0) {
@@ -1012,7 +1014,8 @@
               boss.y - boss.radius * 0.7,
               Math.round(bullet.damage),
               bullet.crit ? '#ffd166' : '#e3f7ff',
-              bullet.crit
+              bullet.crit,
+              bullet.crit ? 1.5 + Math.min(0.6, bullet.damage / 200) : 1.05
             );
             this.audio.play(bullet.crit ? 'crit' : 'hit');
             if (bullet.pierce > 0) {
@@ -1039,6 +1042,12 @@
         const dy = player.y - shot.y;
         const radius = shot.radius + player.radius * 0.72;
         if (dx * dx + dy * dy <= radius * radius) {
+          if (player.isPhasing()) {
+            // 冲刺无敌帧：子弹被相位消解，给予明确反馈，而不是「无事发生」。
+            player.absorbProjectile(shot.x, shot.y);
+            this.enemyBullets.splice(i, 1);
+            continue;
+          }
           if (!player.isInvulnerable()) {
             player.hurt(shot.damage, shot.x, shot.y);
             this.particles.ring(shot.x, shot.y, shot.color, 6, 30, 0.3, 2);

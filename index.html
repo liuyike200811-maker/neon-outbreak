@@ -7,7 +7,7 @@
   <meta name="description" content="NEON OUTBREAK — 霓虹禁区：最后防线。六分钟，两个核心，最后一次撤离机会。">
   <title>霓虹禁区：最后防线 // NEON OUTBREAK</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -107,6 +107,33 @@
             <span id="hp-text" class="hp-text">100 / 100</span>
           </div>
           <div class="hud-subline"><span>ARMOR</span><span id="armor-readout">ONLINE</span></div>
+          <div id="meter-stack" class="meter-stack">
+            <div class="meter-row">
+              <span class="meter-label">DMG</span>
+              <div class="meter-bar"><div id="meter-damage" class="meter-fill meter-dmg"></div></div>
+              <span id="meter-damage-val" class="meter-val">×1.00</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">RATE</span>
+              <div class="meter-bar"><div id="meter-rate" class="meter-fill meter-rate"></div></div>
+              <span id="meter-rate-val" class="meter-val">2.2/s</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">CRIT</span>
+              <div class="meter-bar"><div id="meter-crit" class="meter-fill meter-crit"></div></div>
+              <span id="meter-crit-val" class="meter-val">5%</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">MAG</span>
+              <div class="meter-bar"><div id="meter-magnet" class="meter-fill meter-mag"></div></div>
+              <span id="meter-magnet-val" class="meter-val">160</span>
+            </div>
+            <div id="meter-emp-row" class="meter-row hidden">
+              <span class="meter-label">EMP</span>
+              <div class="meter-bar"><div id="meter-emp" class="meter-fill meter-emp"></div></div>
+              <span id="meter-emp-val" class="meter-val">READY</span>
+            </div>
+          </div>
         </div>
 
         <div class="hud-center">
@@ -331,17 +358,17 @@
     </noscript>
   </div>
 
-  <script defer src="js/utils.js?v=11"></script>
-  <script defer src="js/storage.js?v=11"></script>
-  <script defer src="js/audio.js?v=11"></script>
-  <script defer src="js/input.js?v=11"></script>
-  <script defer src="js/particles.js?v=11"></script>
-  <script defer src="js/upgrades.js?v=11"></script>
-  <script defer src="js/player.js?v=11"></script>
-  <script defer src="js/enemies.js?v=11"></script>
-  <script defer src="js/bosses.js?v=11"></script>
-  <script defer src="js/ui.js?v=11"></script>
-  <script defer src="js/game.js?v=11"></script>
-  <script defer src="js/main.js?v=11"></script>
+  <script defer src="js/utils.js?v=13"></script>
+  <script defer src="js/storage.js?v=13"></script>
+  <script defer src="js/audio.js?v=13"></script>
+  <script defer src="js/input.js?v=13"></script>
+  <script defer src="js/particles.js?v=13"></script>
+  <script defer src="js/upgrades.js?v=13"></script>
+  <script defer src="js/player.js?v=13"></script>
+  <script defer src="js/enemies.js?v=13"></script>
+  <script defer src="js/bosses.js?v=13"></script>
+  <script defer src="js/ui.js?v=13"></script>
+  <script defer src="js/game.js?v=13"></script>
+  <script defer src="js/main.js?v=13"></script>
 </body>
 </html>
