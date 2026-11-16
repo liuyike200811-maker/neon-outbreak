@@ -587,13 +587,15 @@
           empRow.classList.toggle('hidden', !shouldShow);
         }
         if (hasEmp) {
-          const ratio = U.clamp(1 - p.empTimer / 4.6, 0, 1);
+          // 进度条从 0 涨到 100% 代表「距离下一次电磁脉冲」；文字显示剩余秒数。
+          const remain = Math.max(0, p.empTimer);
+          const ratio = U.clamp(1 - remain / 4.6, 0, 1);
           const empPct = Math.round(ratio * 100);
           if (cache.meterEmp !== empPct) {
             cache.meterEmp = empPct;
             if (this.el['meter-emp']) this.el['meter-emp'].style.width = empPct + '%';
             if (this.el['meter-emp-val']) {
-              this.el['meter-emp-val'].textContent = ratio >= 1 ? 'READY' : (4.6 - p.empTimer).toFixed(1) + 's';
+              this.el['meter-emp-val'].textContent = ratio >= 0.98 ? 'READY' : remain.toFixed(1) + 's';
             }
           }
         }
