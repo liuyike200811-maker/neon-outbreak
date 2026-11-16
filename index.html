@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#080b16">
+  <meta name="description" content="NEON OUTBREAK — 霓虹禁区：最后防线。六分钟，两个核心，最后一次撤离机会。">
+  <title>霓虹禁区：最后防线 // NEON OUTBREAK</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas" aria-label="NEON OUTBREAK 游戏画面"></canvas>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="scanlines" aria-hidden="true"></div>
+    <div id="fx-flash" aria-hidden="true"></div>
+
+    <!-- ================= MAIN MENU ================= -->
+    <section id="screen-menu" class="screen menu-screen is-active">
+      <div class="menu-backdrop" aria-hidden="true"></div>
+      <header class="menu-topline">
+        <div class="topline-left">
+          <span class="live-dot"></span>
+          <span>NEON-07 / SECTOR CORE</span>
+          <span class="dim">2189.11.12</span>
+        </div>
+        <div class="topline-right">
+          <button id="btn-menu-sound" class="icon-btn audio-btn" type="button" aria-label="切换声音">
+            <span class="audio-glyph" id="menu-audio-glyph">◖</span><span id="menu-audio-label">AUDIO ON</span>
+          </button>
+          <span class="build-tag">BUILD 1.0.0</span>
+        </div>
+      </header>
+
+      <div class="menu-content">
+        <div class="menu-main">
+          <p class="eyebrow"><span>ROGUELITE SURVIVAL PROTOCOL</span><span class="eyebrow-line"></span></p>
+          <h1 class="game-logo" data-text="NEON OUTBREAK">NEON<span class="logo-gap"> </span>OUTBREAK</h1>
+          <div class="logo-cn"><span>霓虹禁区</span><i></i><em>最后防线</em></div>
+          <p class="tagline">六分钟。两个核心。最后一次撤离机会。</p>
+
+          <div class="menu-actions">
+            <button id="btn-start" class="btn btn-primary" type="button">
+              <span class="btn-icon">▶</span>
+              <span class="btn-copy"><b>开始任务</b><small>INITIATE PROTOCOL</small></span>
+              <span class="btn-key">ENTER</span>
+            </button>
+            <button id="btn-instructions" class="btn" type="button">
+              <span class="btn-icon">?</span><span class="btn-copy"><b>操作说明</b><small>FIELD MANUAL</small></span>
+            </button>
+            <button id="btn-settings" class="btn" type="button">
+              <span class="btn-icon">⚙</span><span class="btn-copy"><b>系统设置</b><small>SYSTEM CONFIG</small></span>
+            </button>
+          </div>
+
+          <div class="record-strip" aria-label="历史纪录">
+            <div class="record-cell">
+              <span class="record-label">HIGH SCORE</span>
+              <strong id="menu-high-score">000000</strong>
+            </div>
+            <div class="record-cell">
+              <span class="record-label">LONGEST SURVIVAL</span>
+              <strong id="menu-longest">00:00</strong>
+            </div>
+            <div class="record-cell">
+              <span class="record-label">TOTAL KILLS</span>
+              <strong id="menu-total-kills">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <aside class="menu-side">
+          <div class="side-frame">
+            <span class="frame-corner tl"></span><span class="frame-corner tr"></span>
+            <span class="frame-corner bl"></span><span class="frame-corner br"></span>
+            <p class="side-kicker">MISSION BRIEF // 6:00</p>
+            <h2>防线协议</h2>
+            <ol class="mission-list">
+              <li><span>01</span><p>在失控机械潮中存活六分钟。</p></li>
+              <li><span>02</span><p>收集能量晶体，即时重构武装。</p></li>
+              <li><span>03</span><p>击毁 JUDGE-09 与 OMEGA 核心。</p></li>
+            </ol>
+            <div class="side-signal"><span></span> SIGNAL LOST... <b>RECONNECTING</b></div>
+          </div>
+          <p class="side-tip">// 移动即生存。不要停止奔跑。</p>
+        </aside>
+      </div>
+
+      <footer class="menu-footer">
+        <span>本地存档 · 无需联网 · 键盘 / 触屏</span>
+        <span class="footer-right">DEEP CORE PROTOCOL <i></i> 毁灭倒计时已启动</span>
+      </footer>
+    </section>
+
+    <!-- ================= HUD ================= -->
+    <section id="screen-hud" class="screen hud-screen" aria-label="游戏状态界面">
+      <div class="hud-top">
+        <div class="hud-left hud-panel">
+          <div class="hud-label-row">
+            <span class="hud-label">VITAL INTEGRITY</span>
+            <span id="level-text" class="level-badge">LV.01</span>
+          </div>
+          <div class="hp-row">
+            <span class="hp-icon">+</span>
+            <div class="bar hp-bar"><div id="hp-fill" class="bar-fill"></div></div>
+            <span id="hp-text" class="hp-text">100 / 100</span>
+          </div>
+          <div class="hud-subline"><span>ARMOR</span><span id="armor-readout">ONLINE</span></div>
+        </div>
+
+        <div class="hud-center">
+          <div class="timer-wrap">
+            <span class="timer-side">T+</span>
+            <span id="timer">00:00</span>
+            <span class="timer-side blinking">●</span>
+          </div>
+          <div id="stage-label" class="stage-chip">PHASE 01 // 接入</div>
+        </div>
+
+        <div class="hud-right">
+          <div class="stat-stack">
+            <div class="hud-stat"><span class="hud-label">KILLS</span><strong id="kill-count">000</strong></div>
+            <div class="hud-stat"><span class="hud-label">SCORE</span><strong id="score-value">000000</strong></div>
+          </div>
+          <button id="btn-pause" class="icon-btn pause-btn" type="button" aria-label="暂停游戏">Ⅱ</button>
+        </div>
+      </div>
+
+      <div id="boss-panel" class="boss-panel hidden" aria-live="polite">
+        <div class="boss-info">
+          <span class="boss-tag">⚠ PRIORITY TARGET</span>
+          <span id="boss-name">机械审判者</span>
+          <span id="boss-phase">PHASE 1</span>
+          <span id="boss-percent">100%</span>
+        </div>
+        <div class="boss-bar"><div id="boss-fill" class="bar-fill"></div><span class="boss-segment s1"></span><span class="boss-segment s2"></span><span class="boss-segment s3"></span></div>
+      </div>
+
+      <div id="tutorial-hint" class="tutorial-hint hidden">
+        <span class="tutorial-tag">TACTICAL HINT</span>
+        <span>WASD / 方向键 移动 · SPACE 冲刺闪避 · 武器自动锁定最近的敌人 · 拾取晶体升级</span>
+      </div>
+
+      <div id="combo-callout" class="combo-callout" aria-live="polite"></div>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <div id="xp-wrap" class="xp-wrap">
+        <span class="xp-label">EXP</span>
+        <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
+        <span id="xp-text" class="xp-text">0 / 10</span>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="dash-panel">
+          <div class="dash-top"><span>PHASE DASH</span><span id="dash-state">READY</span></div>
+          <div class="dash-bar"><div id="dash-fill" class="dash-fill"></div></div>
+          <span class="dash-key">SPACE</span>
+        </div>
+        <div id="module-strip" class="module-strip" aria-label="已获得强化"></div>
+        <div class="build-panel"><span>WEAPON</span><strong>ARC-7</strong><i></i><span>AUTO</span></div>
+      </div>
+
+      <div id="touch-controls" class="touch-controls" aria-hidden="true">
+        <div id="joystick" class="joystick"><div class="joystick-cross"></div><div id="joystick-knob" class="joystick-knob"></div></div>
+        <button id="btn-touch-dash" class="touch-dash" type="button" aria-label="冲刺"><span>DASH</span><small id="touch-dash-label">READY</small></button>
+      </div>
+    </section>
+
+    <!-- ================= PAUSE ================= -->
+    <section id="screen-pause" class="screen modal-screen pause-screen">
+      <div class="modal-card pause-card">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <p class="modal-kicker">SYSTEM HALT // TEMPORAL LOCK</p>
+        <h2 class="modal-title">战术暂停</h2>
+        <p class="modal-copy">城市仍在燃烧，但时间为你停了一瞬。</p>
+        <div class="pause-mini-stats">
+          <span>LEVEL <b id="pause-level">1</b></span>
+          <span>KILLS <b id="pause-kills">0</b></span>
+          <span>TIME <b id="pause-time">00:00</b></span>
+        </div>
+        <div class="modal-actions">
+          <button id="btn-resume" class="btn btn-primary" type="button"><span class="btn-icon">▶</span><span class="btn-copy"><b>继续游戏</b><small>RESUME</small></span></button>
+          <button id="btn-pause-settings" class="btn" type="button"><span class="btn-icon">⚙</span><span class="btn-copy"><b>系统设置</b><small>CONFIG</small></span></button>
+          <button id="btn-pause-restart" class="btn btn-danger" type="button"><span class="btn-icon">↻</span><span class="btn-copy"><b>重新开始</b><small>REBOOT MISSION</small></span></button>
+          <button id="btn-pause-menu" class="btn btn-ghost" type="button"><span class="btn-icon">×</span><span class="btn-copy"><b>返回主菜单</b><small>ABANDON</small></span></button>
+        </div>
+        <p class="hotkey-note">ESC 继续 · 所有战斗逻辑已冻结</p>
+      </div>
+    </section>
+
+    <!-- ================= LEVEL UP ================= -->
+    <section id="screen-levelup" class="screen levelup-screen">
+      <div class="levelup-inner">
+        <p class="levelup-kicker">NEURAL EVOLUTION // <span id="upgrade-level-label">LEVEL 02</span></p>
+        <h2 class="levelup-title">选择强化模块</h2>
+        <p class="levelup-sub">战斗已暂停。安装一个模块后继续行动。</p>
+        <div id="upgrade-cards" class="upgrade-grid"></div>
+        <p class="choose-hint"><span>1</span><span>2</span><span>3</span> 数字键快速选择 · 点击卡片安装</p>
+      </div>
+    </section>
+
+    <!-- ================= RESULT ================= -->
+    <section id="screen-result" class="screen result-screen">
+      <div class="result-card">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <p id="result-kicker" class="result-kicker">MISSION FAILED</p>
+        <h2 id="result-title" class="result-title">防线失守</h2>
+        <p id="result-sub" class="result-sub">连接中断。NEON-07 被机械潮彻底吞没。</p>
+
+        <div class="grade-wrap">
+          <div class="grade-ring"><span id="result-grade">C</span></div>
+          <div class="grade-copy"><span>PERFORMANCE RATING</span><strong id="result-grade-text">战术评级</strong></div>
+        </div>
+
+        <div class="result-stats">
+          <div><span>SURVIVAL TIME</span><b id="res-time">00:00</b></div>
+          <div><span>ELIMINATIONS</span><b id="res-kills">0</b></div>
+          <div><span>FINAL LEVEL</span><b id="res-level">1</b></div>
+          <div><span>FINAL SCORE</span><b id="res-score">0</b></div>
+          <div class="result-best"><span>PERSONAL BEST</span><b id="res-best">0</b></div>
+        </div>
+        <p id="result-newrecord" class="new-record hidden">✦ NEW PERSONAL RECORD ✦</p>
+        <div class="result-actions">
+          <button id="btn-result-restart" class="btn btn-primary" type="button"><span class="btn-icon">↻</span><span class="btn-copy"><b>再次出击</b><small>RETRY</small></span></button>
+          <button id="btn-result-menu" class="btn btn-ghost" type="button"><span class="btn-icon">×</span><span class="btn-copy"><b>返回主菜单</b><small>MAIN MENU</small></span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section id="screen-settings" class="screen modal-screen settings-screen">
+      <div class="modal-card settings-card">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <p class="modal-kicker">SYSTEM CONFIG // LOCAL OVERRIDE</p>
+        <h2 class="modal-title">系统设置</h2>
+        <div class="settings-body">
+          <div class="setting-row">
+            <div class="setting-info"><span>音效系统</span><small>AUDIO SFX</small></div>
+            <label class="switch">
+              <input id="toggle-sound" type="checkbox" checked>
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+          <div class="setting-row slider-row">
+            <div class="setting-info"><span>主音量</span><small>MASTER VOLUME</small></div>
+            <div class="slider-wrap">
+              <input id="volume-slider" type="range" min="0" max="100" step="1" value="70" aria-label="主音量">
+              <output id="volume-value">70%</output>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span>屏幕震动</span><small>SCREEN SHAKE</small></div>
+            <label class="switch">
+              <input id="toggle-shake" type="checkbox" checked>
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+          <div class="settings-note">
+            <span>LOCAL STORAGE</span>
+            <p id="storage-status">设置与纪录将保存在本机浏览器。</p>
+          </div>
+        </div>
+        <button id="btn-settings-close" class="btn btn-primary wide-btn" type="button"><span class="btn-copy"><b>确认并返回</b><small>APPLY &amp; CLOSE</small></span></button>
+      </div>
+    </section>
+
+    <!-- ================= INSTRUCTIONS ================= -->
+    <section id="screen-instructions" class="screen modal-screen instructions-screen">
+      <div class="modal-card instructions-card">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <p class="modal-kicker">FIELD MANUAL // OPERATIVE BRIEFING</p>
+        <h2 class="modal-title">操作说明</h2>
+        <div class="instruction-columns">
+          <div class="instruction-block">
+            <h3>桌面端</h3>
+            <div class="key-list">
+              <div><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><p>移动</p></div>
+              <div><span class="keys"><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span><p>移动（同 WASD）</p></div>
+              <div><span class="keys"><kbd class="wide">SPACE</kbd></span><p>相位冲刺</p></div>
+              <div><span class="keys"><kbd class="wide">ESC</kbd></span><p>暂停 / 继续</p></div>
+              <div><span class="keys"><kbd>M</kbd></span><p>静音切换</p></div>
+            </div>
+          </div>
+          <div class="instruction-block">
+            <h3>移动端</h3>
+            <div class="mobile-guide">
+              <div class="mini-joystick"><i></i></div>
+              <p>左下虚拟摇杆移动<br>右下 DASH 按钮冲刺<br>右上角按钮暂停</p>
+            </div>
+            <div class="instruction-divider"></div>
+            <h3>生存守则</h3>
+            <ul class="survival-rules">
+              <li>武器会自动锁定最近的敌人，你只需要专注走位。</li>
+              <li>冲刺期间短暂无敌，善用它穿过弹幕。</li>
+              <li>晶体会自动吸附。升级时战斗暂停，选择模块后立即生效。</li>
+              <li>在 03:00 与 06:00 迎战两名核心首领。最终核心出现后，计时停止。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="enemy-legend">
+          <span><i style="--c:#ff365e"></i>无人机</span>
+          <span><i style="--c:#ff8a4c"></i>重装</span>
+          <span><i style="--c:#965bff"></i>狙击</span>
+          <span><i style="--c:#ffb347"></i>自爆虫</span>
+          <span><i style="--c:#6e8cff"></i>精英</span>
+        </div>
+        <button id="btn-instructions-close" class="btn btn-primary wide-btn" type="button"><span class="btn-copy"><b>返回</b><small>CLOSE MANUAL</small></span></button>
+      </div>
+    </section>
+
+    <!-- ================= BOSS INTRO ================= -->
+    <section id="screen-boss-intro" class="screen boss-intro-screen" aria-live="assertive">
+      <div class="boss-intro-vignette"></div>
+      <div class="warning-glyph">⚠</div>
+      <p class="boss-intro-warning">WARNING // CORE-CLASS THREAT DETECTED</p>
+      <div class="boss-intro-rule"></div>
+      <h2 id="boss-intro-name">机械审判者</h2>
+      <p id="boss-intro-sub" class="boss-intro-sub">JUDGE-09 // DEFENSE PLATFORM</p>
+      <p id="boss-intro-phase" class="boss-intro-phase">THE JUDGEMENT HAS BEGUN</p>
+      <span class="boss-intro-skip">点击任意位置跳过演出</span>
+    </section>
+
+    <div id="rotate-hint" aria-hidden="true">
+      <span class="rotate-icon">⟳</span>
+      <span><b>建议横屏游玩</b><small>ROTATE DEVICE FOR BEST EXPERIENCE</small></span>
+    </div>
+
+    <noscript>
+      <div class="noscript">此游戏需要启用 JavaScript。请启用后重新加载页面。</div>
+    </noscript>
+  </div>
+
+  <script defer src="js/utils.js?v=11"></script>
+  <script defer src="js/storage.js?v=11"></script>
+  <script defer src="js/audio.js?v=11"></script>
+  <script defer src="js/input.js?v=11"></script>
+  <script defer src="js/particles.js?v=11"></script>
+  <script defer src="js/upgrades.js?v=11"></script>
+  <script defer src="js/player.js?v=11"></script>
+  <script defer src="js/enemies.js?v=11"></script>
+  <script defer src="js/bosses.js?v=11"></script>
+  <script defer src="js/ui.js?v=11"></script>
+  <script defer src="js/game.js?v=11"></script>
+  <script defer src="js/main.js?v=11"></script>
+</body>
+</html>
