@@ -6,6 +6,18 @@
 
 ---
 
+## 在线试玩
+
+**https://liuyike200811-maker.github.io/neon-outbreak/**
+
+由 GitHub Pages 托管，手机和电脑浏览器打开即玩，无需安装任何东西。
+
+当前版本：**0.0.1**
+
+仓库：**https://github.com/liuyike200811-maker/neon-outbreak**
+
+---
+
 ## 一、启动方式
 
 项目是**纯静态网页**，没有构建步骤、没有外部 CDN、没有后端。

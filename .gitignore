@@ -20,3 +20,7 @@ playwright-report/
 # Local build output — this project has no build step, but keep it clean
 dist/
 *.log
+
+# Python (publish helper)
+__pycache__/
+*.pyc
