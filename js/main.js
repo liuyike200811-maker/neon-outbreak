@@ -104,7 +104,7 @@
       }
 
       if (state === 'BOSS_INTRO') {
-        if (event.code === 'Enter' || event.code === 'Space') {
+        if (event.code === 'Enter' || event.code === 'Space' || event.code === 'Escape') {
           event.preventDefault();
           game.skipBossIntro();
         }
@@ -116,7 +116,7 @@
   }
 
   function isGameKey(code) {
-    return code === 'Space' || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' ||
+    return code === 'Space' || code === 'Enter' || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' ||
       code === 'KeyD' || code === 'ArrowUp' || code === 'ArrowDown' ||
       code === 'ArrowLeft' || code === 'ArrowRight';
   }

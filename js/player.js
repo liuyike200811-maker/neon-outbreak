@@ -193,7 +193,7 @@
       }
       this.contactPulse += dt;
 
-      const wantsDash = NO.Input.consume('Space');
+      const wantsDash = NO.Input.consume('Enter');
       const move = NO.Input.getMove();
 
       if (wantsDash) this.tryDash(move);

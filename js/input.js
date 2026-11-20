@@ -31,17 +31,16 @@
       const self = this;
       window.addEventListener('keydown', function (event) {
         if (gameKeys.has(event.code)) {
-          if (event.code === 'Space' || event.code.indexOf('Arrow') === 0) event.preventDefault();
+          if (event.code === 'Space' || event.code === 'Enter' || event.code.indexOf('Arrow') === 0) event.preventDefault();
           if (!event.repeat) self.pressed[event.code] = true;
           self.keys[event.code] = true;
         }
-        if (event.code === 'Space') event.preventDefault();
       }, { passive: false });
 
       window.addEventListener('keyup', function (event) {
         if (gameKeys.has(event.code)) {
           self.keys[event.code] = false;
-          if (event.code === 'Space' || event.code.indexOf('Arrow') === 0) event.preventDefault();
+          if (event.code === 'Space' || event.code === 'Enter' || event.code.indexOf('Arrow') === 0) event.preventDefault();
         }
       }, { passive: false });
 
@@ -144,7 +143,7 @@
       this.dashButton.addEventListener('pointerdown', function (event) {
         event.preventDefault();
         event.stopPropagation();
-        self.pressed.Space = true;
+        self.pressed.Enter = true;
         self.dashButton.classList.add('pressed');
         NO.GameAudio.unlock();
       }, { passive: false });

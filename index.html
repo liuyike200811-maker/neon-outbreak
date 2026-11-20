@@ -7,7 +7,7 @@
   <meta name="description" content="NEON OUTBREAK — 霓虹禁区：最后防线。六分钟，两个核心，最后一次撤离机会。">
   <title>霓虹禁区：最后防线 // NEON OUTBREAK</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
   <div id="app">
@@ -166,7 +166,7 @@
 
       <div id="tutorial-hint" class="tutorial-hint hidden">
         <span class="tutorial-tag">TACTICAL HINT</span>
-        <span>WASD / 方向键 移动 · SPACE 冲刺闪避 · 武器自动锁定最近的敌人 · 拾取晶体升级</span>
+        <span>WASD / 方向键 移动 · ENTER 冲刺闪避 · 武器自动锁定最近的敌人 · 拾取晶体升级</span>
       </div>
 
       <div id="combo-callout" class="combo-callout" aria-live="polite"></div>
@@ -179,18 +179,20 @@
       </div>
 
       <div class="hud-bottom">
-        <div class="dash-panel">
-          <div class="dash-top"><span>PHASE DASH</span><span id="dash-state">READY</span></div>
-          <div class="dash-bar"><div id="dash-fill" class="dash-fill"></div></div>
-          <span class="dash-key">SPACE</span>
-        </div>
         <div id="module-strip" class="module-strip" aria-label="已获得强化"></div>
         <div class="build-panel"><span>WEAPON</span><strong>ARC-7</strong><i></i><span>AUTO</span></div>
       </div>
 
+      <div id="dash-meter" class="dash-meter">
+        <div class="dash-top"><span>PHASE DASH</span><span id="dash-state">READY</span></div>
+        <div id="btn-touch-dash" class="dash-bar" role="button" tabindex="-1" aria-label="冲刺">
+          <div id="dash-fill" class="dash-fill"></div>
+        </div>
+        <span id="dash-key-hint" class="dash-key">ENTER</span>
+      </div>
+
       <div id="touch-controls" class="touch-controls" aria-hidden="true">
         <div id="joystick" class="joystick"><div class="joystick-cross"></div><div id="joystick-knob" class="joystick-knob"></div></div>
-        <button id="btn-touch-dash" class="touch-dash" type="button" aria-label="冲刺"><span>DASH</span><small id="touch-dash-label">READY</small></button>
       </div>
     </section>
 
@@ -304,7 +306,7 @@
             <div class="key-list">
               <div><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><p>移动</p></div>
               <div><span class="keys"><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span><p>移动（同 WASD）</p></div>
-              <div><span class="keys"><kbd class="wide">SPACE</kbd></span><p>相位冲刺（无敌并消解子弹）</p></div>
+              <div><span class="keys"><kbd class="wide">ENTER</kbd></span><p>相位冲刺（无敌并消解子弹）</p></div>
               <div><span class="keys"><kbd class="wide">ESC</kbd></span><p>暂停 / 继续</p></div>
               <div><span class="keys"><kbd>M</kbd></span><p>静音切换</p></div>
             </div>
@@ -313,7 +315,7 @@
             <h3>移动端</h3>
             <div class="mobile-guide">
               <div class="mini-joystick"><i></i></div>
-              <p>左下虚拟摇杆移动<br>右下 DASH 按钮冲刺<br>右上角按钮暂停</p>
+              <p>左下虚拟摇杆移动<br>右下冲刺进度条点按<br>右上角按钮暂停</p>
             </div>
             <div class="instruction-divider"></div>
             <h3>生存守则</h3>
@@ -359,17 +361,17 @@
     </noscript>
   </div>
 
-  <script defer src="js/utils.js?v=15"></script>
-  <script defer src="js/storage.js?v=15"></script>
-  <script defer src="js/audio.js?v=15"></script>
-  <script defer src="js/input.js?v=15"></script>
-  <script defer src="js/particles.js?v=15"></script>
-  <script defer src="js/upgrades.js?v=15"></script>
-  <script defer src="js/player.js?v=15"></script>
-  <script defer src="js/enemies.js?v=15"></script>
-  <script defer src="js/bosses.js?v=15"></script>
-  <script defer src="js/ui.js?v=15"></script>
-  <script defer src="js/game.js?v=15"></script>
-  <script defer src="js/main.js?v=15"></script>
+  <script defer src="js/utils.js?v=17"></script>
+  <script defer src="js/storage.js?v=17"></script>
+  <script defer src="js/audio.js?v=17"></script>
+  <script defer src="js/input.js?v=17"></script>
+  <script defer src="js/particles.js?v=17"></script>
+  <script defer src="js/upgrades.js?v=17"></script>
+  <script defer src="js/player.js?v=17"></script>
+  <script defer src="js/enemies.js?v=17"></script>
+  <script defer src="js/bosses.js?v=17"></script>
+  <script defer src="js/ui.js?v=17"></script>
+  <script defer src="js/game.js?v=17"></script>
+  <script defer src="js/main.js?v=17"></script>
 </body>
 </html>

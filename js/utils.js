@@ -165,10 +165,16 @@
   }
 
   function isTouchDevice() {
-    return (
-      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
-      (navigator.maxTouchPoints > 0 && window.innerWidth < 1100)
-    );
+    // 只有「主指针是触屏、且没有可用的精确指针」才算手机/平板。
+    // 带触屏的 Windows 笔记本 / 触控显示器同时具备 fine 指针，应当按电脑处理，
+    // 否则会误判成移动端、平白多出一根虚拟摇杆。
+    const mq = window.matchMedia;
+    if (!mq) return false;
+    const coarse = mq('(pointer: coarse)').matches;
+    const anyFine = mq('(any-pointer: fine)').matches;
+    if (coarse && !anyFine) return true;
+    // 兜底：个别手机浏览器把主指针报成 fine，用「有触点 + 无精确指针 + 窄视口」补齐。
+    return navigator.maxTouchPoints > 0 && !anyFine && window.innerWidth < 1100;
   }
 
   function lerpColorHex(hexA, hexB, t) {

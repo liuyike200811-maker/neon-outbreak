@@ -38,7 +38,7 @@
         'hp-fill', 'hp-text', 'level-text', 'armor-readout', 'timer', 'stage-label',
         'kill-count', 'score-value', 'btn-pause', 'boss-panel', 'boss-name', 'boss-phase',
         'boss-fill', 'boss-percent', 'xp-fill', 'xp-text', 'dash-fill', 'dash-state',
-        'module-strip', 'tutorial-hint', 'combo-callout', 'toast', 'touch-dash-label',
+        'module-strip', 'tutorial-hint', 'combo-callout', 'toast', 'dash-meter', 'dash-key-hint',
         'btn-touch-dash', 'pause-level', 'pause-kills', 'pause-time', 'upgrade-cards',
         'upgrade-level-label', 'result-kicker', 'result-title', 'result-sub', 'result-grade',
         'result-grade-text', 'res-time', 'res-kills', 'res-level', 'res-score', 'res-best',
@@ -526,11 +526,10 @@
         cache.dashState = dashState;
         this.el['dash-state'].textContent = dashState;
       }
-      if (this.el['touch-dash-label'] && cache.dashState !== undefined && this.el['touch-dash-label'].textContent !== dashState) {
-        this.el['touch-dash-label'].textContent = dashReady ? 'READY' : Math.ceil(p.dashCooldownTimer) + 's';
-      }
-      const dashButton = this.el['btn-touch-dash'];
-      if (dashButton) dashButton.classList.toggle('cooling', !dashReady);
+      const dashBar = this.el['btn-touch-dash'];
+      if (dashBar) dashBar.classList.toggle('cooling', !dashReady);
+      const dashStateEl = this.el['dash-state'];
+      if (dashStateEl) dashStateEl.classList.toggle('cooling', !dashReady);
 
       this.updateMeters();
       this.updateModules();
