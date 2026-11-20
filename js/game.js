@@ -24,6 +24,29 @@
   const MODE = Object.freeze({ STANDARD: 'standard', ENDLESS: 'endless' });
 
   /* ------------------------------------------------------------------
+     难度档位：默认 1 档。玩家初始能力完全不变，只有敌人与刷怪节奏变凶。
+     spawn  = 刷怪频率倍率（越大越密）
+     hp     = 敌人生命倍率
+     speed  = 敌人移动倍率
+     contact= 接触伤害倍率
+     cap    = 场上敌人数上限倍率
+     score  = 得分倍率（难度越高，分数含金量越高）
+     ------------------------------------------------------------------ */
+  const DIFFICULTY = Object.freeze([
+    { id: 1, name: '新兵', en: 'RECRUIT', spawn: 1.0, hp: 1.0, speed: 1.0, contact: 1.0, cap: 1.0, score: 1.0 },
+    { id: 2, name: '标准', en: 'STANDARD', spawn: 1.22, hp: 1.14, speed: 1.04, contact: 1.08, cap: 1.08, score: 1.15 },
+    { id: 3, name: '老兵', en: 'VETERAN', spawn: 1.48, hp: 1.32, speed: 1.08, contact: 1.18, cap: 1.18, score: 1.35 },
+    { id: 4, name: '精英', en: 'ELITE', spawn: 1.78, hp: 1.54, speed: 1.12, contact: 1.30, cap: 1.28, score: 1.6 },
+    { id: 5, name: '噩梦', en: 'NIGHTMARE', spawn: 2.12, hp: 1.82, speed: 1.17, contact: 1.45, cap: 1.4, score: 1.9 },
+    { id: 6, name: '地狱', en: 'INFERNO', spawn: 2.5, hp: 2.15, speed: 1.22, contact: 1.62, cap: 1.55, score: 2.3 }
+  ]);
+
+  function difficultyAt(level) {
+    const index = Math.max(0, Math.min(DIFFICULTY.length - 1, Math.round(level || 1) - 1));
+    return DIFFICULTY[index];
+  }
+
+  /* ------------------------------------------------------------------
      Player projectile - real travel, arcade collision, pierce support
      ------------------------------------------------------------------ */
   class Bullet {
@@ -259,6 +282,9 @@
       this.xpNeeded = 12;
       this.pendingLevelUps = 0;
       this.levelChoices = null;
+      this.pendingLevelDelay = 0;
+      this.perfectDodgeCount = 0;
+      this.rerollsLeft = 3;
 
       // 模式：标准任务是 6 分钟定点剧本，无尽模式越过 360 秒后继续加压，
       // BOSS 按周期重生并逐轮变强，直到玩家阵亡。
@@ -266,6 +292,8 @@
       this.endlessCycle = 0;
       this.nextBossAt = 0;
       this.omegaUnlocked = false;
+      this.difficulty = 1;
+      this.difficultyProfile = difficultyAt(1);
 
       this.camera = { x: 0, y: 0 };
       this.shakeMagnitude = 0;
@@ -332,7 +360,12 @@
 
     /* ---------------- run lifecycle ---------------- */
 
-    start(mode) {
+    start(mode, difficulty) {
+      // 未显式传入时从存档读：这样「重新开始」也会沿用玩家在设置里选的档位。
+      const level = typeof difficulty === 'number' && isFinite(difficulty)
+        ? difficulty
+        : (NO.Storage ? NO.Storage.get('difficulty') : 1);
+      this.difficulty = Math.max(1, Math.min(DIFFICULTY.length, Math.round(level || 1)));
       this.resetRun();
       this.mode = mode === MODE.ENDLESS ? MODE.ENDLESS : MODE.STANDARD;
       this.state = STATE.PLAYING;
@@ -369,6 +402,10 @@
       this.xpNeeded = this.xpForLevel(1);
       this.pendingLevelUps = 0;
       this.levelChoices = null;
+      this.pendingLevelDelay = 0;
+      this.perfectDodgeCount = 0;
+      // 重抽：每局 3 次。够用，但不至于让「三选一」变成「随便换到满意为止」。
+      this.rerollsLeft = 3;
       this.comboCount = 0;
       this.comboTimer = 0;
       this.spawnTimer = 1.3;
@@ -386,6 +423,8 @@
       this.endlessCycle = 0;
       this.nextBossAt = 0;
       this.omegaUnlocked = false;
+      this.overclockCount = 0;
+      this.difficultyProfile = difficultyAt(this.difficulty);
 
       this.player = new NO.Player(this, 0, 0);
       this.player.level = 1;
@@ -440,7 +479,49 @@
     /* ---------------- scoring / xp ---------------- */
 
     addScore(amount) {
-      this.score += Math.max(0, amount);
+      const profile = this.difficultyProfile || difficultyAt(1);
+      this.score += Math.max(0, amount) * profile.score;
+    }
+
+    // 完美闪避的奖励：立刻升一级（不走经验条，直接进升级队列）。
+    // 不在这里开面板：战斗正激烈，突然弹三张卡会打断玩家的走位节奏。
+    // 升级面板会在下一次自然升级时一起结算（pendingLevelUps 累加）。
+    onPerfectDodge() {
+      if (!this.player || this.state !== STATE.PLAYING) return;
+      this.perfectDodgeCount = (this.perfectDodgeCount || 0) + 1;
+      this.player.level += 1;
+      this.pendingLevelUps += 1;
+      const chassis = 6;
+      this.player.maxHp += chassis;
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + chassis);
+      this.xpNeeded = this.xpForLevel(this.player.level);
+      this.addScore(400);
+      this.particles.label(this.player.x, this.player.y - 58, 'LV ' + this.player.level, '#5cffb2', 15);
+      if (this.ui) {
+        this.ui.showToast('完美闪避 · 立即升级 LV ' + this.player.level, 'gold');
+        this.ui.updateHud();
+      }
+      this.audio.play('levelup');
+      // 升级面板稍后开：给玩家 0.35 秒看到闪避特效，再进入三选一。
+      this.pendingLevelDelay = 0.35;
+    }
+
+    // 无尽模式的玩家成长：每击破一波 BOSS 叠一层超频。
+    grantOverclock() {
+      if (!this.player) return;
+      this.overclockCount = (this.overclockCount || 0) + 1;
+      const p = this.player;
+      p.overclock = this.overclockCount;
+      p.bonusDamageMult *= 1.12;
+      p.bonusSpeedMult = Math.min(1.3, p.bonusSpeedMult * 1.03);
+      p.bonusMaxHp += 10;
+      p.maxHp += 10;
+      p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.25));
+      p.recalculateStats();
+      this.particles.ring(p.x, p.y, '#ffd166', 22, 190, 0.8, 3.5);
+      this.particles.burst(p.x, p.y, '#ffd166', 22, 200, 3, 0.7, 'spark');
+      this.particles.label(p.x, p.y - 46, 'OVERCLOCK ×' + this.overclockCount, '#ffd166', 15);
+      if (this.ui) this.ui.updateHud();
     }
 
     xpForLevel(level) {
@@ -477,10 +558,57 @@
       this.audio.play('levelup');
       this.particles.ring(this.player.x, this.player.y, '#5cffb2', 20, 150, 0.7, 3);
       this.particles.burst(this.player.x, this.player.y, '#5cffb2', 24, 220, 3.4, 0.7, 'spark');
-      const choices = NO.Upgrades.pickChoices(this.player, 3);
+      // 每 5 级给一次稀有保底，让升级有期待感而不是纯数值灌水。
+      const guarantee = this.player.level % 5 === 0;
+      const choices = NO.Upgrades.pickChoices(this.player, 3, guarantee);
       this.levelChoices = choices;
-      if (this.ui) this.ui.showLevelUp(choices, this.player.level);
+      if (this.ui) this.ui.showLevelUp(choices, this.player.level, this.rerollsLeft);
       NO.Input.clearKeys();
+    }
+
+    // 重抽当前三张卡（消耗一次机会）。
+    rerollChoices() {
+      if (this.state !== STATE.LEVEL_UP) return false;
+      if (this.rerollsLeft <= 0) return false;
+      this.rerollsLeft -= 1;
+      const guarantee = this.player.level % 5 === 0;
+      const choices = NO.Upgrades.pickChoices(this.player, 3, guarantee);
+      this.levelChoices = choices;
+      if (this.ui) this.ui.showLevelUp(choices, this.player.level, this.rerollsLeft);
+      this.particles.ring(this.player.x, this.player.y, '#ffd166', 12, 90, 0.45, 2);
+      this.audio.play('click');
+      return true;
+    }
+
+    // 跳过：不要这三张卡，换 250 分 + 15 点生命。
+    // 这是给「三张都不想要」的玩家一条出路，而不是逼他选一个垃圾模块。
+    skipChoices() {
+      if (this.state !== STATE.LEVEL_UP) return false;
+      this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
+      this.levelChoices = null;
+      this.state = STATE.PLAYING;
+      this.addScore(250);
+      if (this.player) {
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 15);
+      }
+      this.particles.ring(this.player.x, this.player.y, '#ffd166', 12, 80, 0.45, 2);
+      this.particles.label(this.player.x, this.player.y - 30, '+250', '#ffd166', 13);
+      if (this.ui) {
+        this.ui.hideLevelUp();
+        this.ui.updateHud();
+        this.ui.resetHudCache();
+        this.ui.updateHud();
+      }
+      this.audio.play('click');
+      NO.Input.clearPressed();
+      NO.Input.clearKeys();
+      const self = this;
+      if (this.pendingLevelUps > 0) {
+        window.setTimeout(function () {
+          if (self.state === STATE.PLAYING) self.openLevelUp();
+        }, 260);
+      }
+      return true;
     }
 
     chooseUpgrade(index) {
@@ -542,6 +670,7 @@
     }
 
     scaleEnemy(enemy) {
+      const profile = this.difficultyProfile || difficultyAt(1);
       let minutes = this.elapsed / 60;
       if (this.mode === MODE.ENDLESS && minutes > 6) {
         // 无尽模式：六分钟之后仍继续变强，但走对数增长，避免十分钟时出现
@@ -550,13 +679,17 @@
       } else {
         minutes = Math.min(6, minutes);
       }
-      const hpScale = 1 + minutes * 0.16;
-      const speedScale = 1 + minutes * 0.035;
+      const hpScale = (1 + minutes * 0.16) * profile.hp;
+      const speedScale = (1 + minutes * 0.035) * profile.speed;
       enemy.maxHp = Math.round(enemy.maxHp * hpScale);
       enemy.hp = enemy.maxHp;
       enemy.baseSpeed *= speedScale;
       enemy.speed = enemy.baseSpeed;
       enemy.xp = Math.round(enemy.xp * (1 + minutes * 0.05));
+      // 接触伤害也吃难度系数，否则高难度只是「敌人更肉」而不是更危险。
+      if (profile.contact !== 1 && typeof enemy.contactDamage === 'number') {
+        enemy.contactDamage = Math.max(1, Math.round(enemy.contactDamage * profile.contact));
+      }
     }
 
     getNearestTarget(x, y, range) {
@@ -964,11 +1097,13 @@
 
       if (this.mode === MODE.ENDLESS) {
         // 无尽模式：击破 BOSS 只是清掉一波，接下来进入更长的间歇再刷新更强的一只。
+        // 敌人走对数变强，玩家这边也要有对应的成长曲线，否则第九分钟必然无解：
+        // 每波 BOSS 给一层「超频」，永久加伤害、移速与生命上限。
         this.endlessCycle += 1;
         this.nextBossAt = this.elapsed + Math.max(38, 62 - this.endlessCycle * 3);
         this.addScore(6000 + this.endlessCycle * 1500);
-        if (this.player) this.player.heal(Math.round(this.player.maxHp * 0.25));
-        this.showToast('WAVE ' + (this.endlessCycle < 10 ? '0' : '') + this.endlessCycle + ' 肃清 · 下一波即将接入', 'gold');
+        this.grantOverclock();
+        this.showToast('WAVE ' + (this.endlessCycle < 10 ? '0' : '') + this.endlessCycle + ' 肃清 · 超频叠至 ' + this.overclockCount + ' 层', 'gold');
         if (this.ui) this.ui.updateHud();
         this.state = STATE.PLAYING;
         return;
@@ -992,24 +1127,29 @@
     /* ---------------- director ---------------- */
 
     spawnInterval() {
+      const profile = this.difficultyProfile || difficultyAt(1);
       const t = Math.min(this.elapsed, 360) / 360;
       // 玩家的清怪速度约 30~80/分钟，生成速率必须留出操作空间，否则场面必然失控。
-      let base = 2.6 - t * 1.0;
+      // 默认档已经比旧版更密（2.2s → 1.05s），难度档在此基础上再叠倍率。
+      let base = 2.2 - t * 1.15;
       // 无尽模式：越过六分钟后继续缓慢加压，但设底线，保证屏幕始终可读。
       if (this.mode === MODE.ENDLESS && this.elapsed > BOSS_TWO_TIME) {
         const extra = (this.elapsed - BOSS_TWO_TIME) / 60;
         base -= Math.min(0.55, extra * 0.06);
       }
+      // 难度：spawn 就是「刷怪频率倍率」，直接除间隔即可。
+      base /= profile.spawn;
       // BOSS 战期间大幅放缓增援：玩家的注意力要留给预警和弹幕，不是清杂兵。
       if (this.boss) base += 1.7;
       if (this.isMobile) base += 0.25;
-      return Math.max(0.55, base);
+      return Math.max(0.42, base);
     }
 
     // BOSS 战期间压缩小怪上限，否则满屏杂兵会淹没 BOSS 与弹幕，玩家无从走位。
     enemyCap() {
-      if (this.boss) return this.isMobile ? 16 : 24;
-      return this.maxEnemies;
+      const profile = this.difficultyProfile || difficultyAt(1);
+      if (this.boss) return Math.round((this.isMobile ? 16 : 24) * profile.cap);
+      return Math.round(this.maxEnemies * profile.cap);
     }
 
     pickKind() {
@@ -1129,6 +1269,12 @@
       }
 
       player.update(dt);
+
+      // 完美闪避送出的升级：延迟一小会儿再弹面板，先让玩家看到闪避特效。
+      if (this.pendingLevelDelay > 0) {
+        this.pendingLevelDelay = Math.max(0, this.pendingLevelDelay - dt);
+        if (this.pendingLevelDelay <= 0 && this.pendingLevelUps > 0) this.openLevelUp();
+      }
 
       // Enemies
       for (let i = this.enemies.length - 1; i >= 0; i -= 1) {
@@ -1588,5 +1734,7 @@
   NO.Game = Game;
   NO.STATE = STATE;
   NO.MODE = MODE;
+  NO.DIFFICULTY = DIFFICULTY;
+  NO.difficultyAt = difficultyAt;
   NO.RUN_DURATION = RUN_DURATION;
 })();

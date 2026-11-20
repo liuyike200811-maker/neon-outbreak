@@ -1219,6 +1219,31 @@ body:not(.touch-device) .upgrade-card:not(.is-focused):not(:hover):not(.selected
 body.touch-device .choose-hint .hint-keys { display: none; }
 body.touch-device .choose-hint .hint-touch { display: inline-flex; }
 
+/* 升级面板底部的重抽 / 跳过。这两个按钮把「三选一」从单向接受变成一次取舍：
+   要么花掉一次重抽换个组合，要么放弃这次模块去换分数和血。 */
+.levelup-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.compact-btn {
+  width: auto;
+  min-width: 168px;
+  padding: 9px 14px;
+  gap: 9px;
+}
+.compact-btn .btn-icon { width: 26px; height: 26px; font-size: 13px; }
+.compact-btn .btn-copy b { font-size: 12px; letter-spacing: 0.06em; }
+.compact-btn .btn-copy small { font-size: 7px; letter-spacing: 0.1em; }
+.compact-btn.is-disabled,
+.compact-btn:disabled {
+  opacity: 0.34;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* ---------------- Results ---------------- */
 
 .result-screen {
@@ -1639,7 +1664,68 @@ body.touch-device .choose-hint .hint-touch { display: inline-flex; }
   .upgrade-preview { padding: 7px 9px; margin-top: 9px; }
   .preview-row { font-size: 8px; gap: 6px; }
   .rarity-badge { font-size: 6px; }
+  .levelup-actions { margin-top: 12px; gap: 8px; }
+  .compact-btn { min-width: 0; flex: 1 1 0; }
+  .compact-btn .btn-copy b { font-size: 11px; }
+  .compact-btn .btn-copy small { font-size: 6px; }
   .choose-hint { display: block; margin-top: 12px; }
+}
+
+/* 难度档位选择器：六个等宽方格，选中档高亮成琥珀色。
+   放在设置面板里，因为它是「一次设定、整局生效」的策略项，不是局内操作。 */
+.difficulty-row { align-items: flex-start; }
+.difficulty-picker {
+  display: flex;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.diff-btn {
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: rgba(6, 16, 28, 0.85);
+  color: #7fa6b8;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+}
+.diff-btn:hover { border-color: rgba(0, 229, 255, 0.65); color: #cdefff; }
+.diff-btn:active { transform: translateY(1px); }
+.diff-btn.is-active {
+  border-color: #ffd166;
+  background: rgba(58, 39, 8, 0.9);
+  color: #ffd166;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.28), inset 0 0 10px rgba(255, 209, 102, 0.14);
+}
+.diff-btn[data-level="5"].is-active,
+.diff-btn[data-level="6"].is-active {
+  border-color: #ff365e;
+  background: rgba(58, 10, 20, 0.9);
+  color: #ff6b83;
+  box-shadow: 0 0 12px rgba(255, 54, 94, 0.3), inset 0 0 10px rgba(255, 54, 94, 0.16);
+}
+.difficulty-hint {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  color: rgba(140, 178, 200, 0.75);
+}
+
+@media (max-width: 760px) {
+  .diff-btn { width: 27px; height: 26px; font-size: 11px; }
+  .difficulty-picker { gap: 4px; }
+  .difficulty-hint { font-size: 7px; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .diff-btn { width: 24px; height: 22px; font-size: 10px; }
+  .difficulty-hint { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

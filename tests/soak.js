@@ -17,7 +17,7 @@
     const g = window.NO.game;
     if (!g) throw new Error('NO.game 不可用，请以 ?test=1 打开');
     if (g.state !== 'MENU') { try { g.backToMenu(); } catch (e) { /* 忽略 */ } }
-    g.start(opts.mode === 'endless' ? 'endless' : 'standard');
+    g.start(opts.mode === 'endless' ? 'endless' : 'standard', opts.difficulty || 1);
 
     const choose = () => {
       const cards = g.levelChoices || [];
@@ -120,7 +120,8 @@
         NO.Input.touchActive = true;
         NO.Input.touchVector = l > 0.01 ? { x: ax / l, y: ay / l } : { x: 0, y: 0 };
         const danger = (nearest && nd < 110) || closestBullet < 70;
-        if (danger && p.dashCooldownTimer <= 0) NO.Input.pressed.Enter = true;
+        // 冲刺已无冷却，唯一的门槛是「上一段相位还没结束」。
+        if (danger && p.dashTimer <= 0) NO.Input.pressed.Enter = true;
       }
       g.update(1 / 60);
       frames += 1;

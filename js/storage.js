@@ -16,6 +16,7 @@
     soundOn: true,
     volume: 0.7,
     shake: true,
+    difficulty: 1,
     tutorialSeen: false
   });
 
@@ -42,6 +43,7 @@
       soundOn: raw.soundOn !== false,
       volume: numberIn(raw.volume, 0.7, 0, 1),
       shake: raw.shake !== false,
+      difficulty: Math.round(numberIn(raw.difficulty, 1, 1, 6)),
       tutorialSeen: raw.tutorialSeen === true
     };
   }

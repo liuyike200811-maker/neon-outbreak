@@ -7,7 +7,7 @@
   <meta name="description" content="NEON OUTBREAK — 霓虹禁区：最后防线。六分钟，两个核心，最后一次撤离机会。">
   <title>霓虹禁区：最后防线 // NEON OUTBREAK</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=27">
 </head>
 <body>
   <div id="app">
@@ -29,7 +29,7 @@
           <button id="btn-menu-sound" class="icon-btn audio-btn" type="button" aria-label="切换声音">
             <span class="audio-glyph" id="menu-audio-glyph">◖</span><span id="menu-audio-label">AUDIO ON</span>
           </button>
-          <span class="build-tag" id="build-tag" title="1.3.0 是功能版本号；v25 是本次构建的缓存标记">BUILD 1.3.0 · v25</span>
+          <span class="build-tag" id="build-tag" title="1.4.0 是功能版本号；v27 是本次构建的缓存标记">BUILD 1.4.0 · v27</span>
         </div>
       </header>
 
@@ -210,7 +210,7 @@
       </div>
 
       <div id="dash-meter" class="dash-meter">
-        <div class="dash-top"><span>PHASE DASH</span><span id="dash-state">READY</span></div>
+        <div class="dash-top"><span>PHASE DASH · 无冷却</span><span id="dash-state">READY</span></div>
         <div id="btn-touch-dash" class="dash-bar" role="button" tabindex="-1" aria-label="冲刺">
           <div id="dash-fill" class="dash-fill"></div>
         </div>
@@ -251,7 +251,15 @@
         <h2 class="levelup-title">选择强化模块</h2>
         <p class="levelup-sub">战斗已暂停。安装一个模块后继续行动。</p>
         <div id="upgrade-cards" class="upgrade-grid"></div>
-        <p class="choose-hint"><span class="hint-keys"><span>◀</span><span>▶</span> 方向键切换 · <span class="hint-wide">SPACE</span> 安装</span><span class="hint-touch">点按卡片安装</span></p>
+        <div class="levelup-actions">
+          <button id="btn-reroll" class="btn btn-ghost compact-btn" type="button">
+            <span class="btn-icon">⟳</span><span class="btn-copy"><b>重抽（剩 3）</b><small>REROLL · 换三张</small></span>
+          </button>
+          <button id="btn-skip-upgrade" class="btn btn-ghost compact-btn" type="button">
+            <span class="btn-icon">⇥</span><span class="btn-copy"><b>跳过</b><small>SKIP · +250 分 +15 HP</small></span>
+          </button>
+        </div>
+        <p class="choose-hint"><span class="hint-keys"><span>◀</span><span>▶</span> 方向键切换 · <span class="hint-wide">SPACE</span> 安装 · <span class="hint-wide">R</span> 重抽</span><span class="hint-touch">点按卡片安装</span></p>
       </div>
     </section>
 
@@ -312,6 +320,18 @@
               <span class="switch-track"><span class="switch-thumb"></span></span>
             </label>
           </div>
+          <div class="setting-row difficulty-row">
+            <div class="setting-info"><span>难度档位</span><small>THREAT LEVEL</small></div>
+            <div id="difficulty-picker" class="difficulty-picker" role="group" aria-label="难度档位">
+              <button class="diff-btn is-active" type="button" data-level="1">1</button>
+              <button class="diff-btn" type="button" data-level="2">2</button>
+              <button class="diff-btn" type="button" data-level="3">3</button>
+              <button class="diff-btn" type="button" data-level="4">4</button>
+              <button class="diff-btn" type="button" data-level="5">5</button>
+              <button class="diff-btn" type="button" data-level="6">6</button>
+            </div>
+          </div>
+          <p id="difficulty-hint" class="difficulty-hint">档位 1 · 新兵 — 默认威胁等级，刷怪最慢。</p>
           <div class="settings-note">
             <span>LOCAL STORAGE</span>
             <p id="storage-status">设置与纪录将保存在本机浏览器。</p>
@@ -388,17 +408,17 @@
     </noscript>
   </div>
 
-  <script defer src="js/utils.js?v=25"></script>
-  <script defer src="js/storage.js?v=25"></script>
-  <script defer src="js/audio.js?v=25"></script>
-  <script defer src="js/input.js?v=25"></script>
-  <script defer src="js/particles.js?v=25"></script>
-  <script defer src="js/upgrades.js?v=25"></script>
-  <script defer src="js/player.js?v=25"></script>
-  <script defer src="js/enemies.js?v=25"></script>
-  <script defer src="js/bosses.js?v=25"></script>
-  <script defer src="js/ui.js?v=25"></script>
-  <script defer src="js/game.js?v=25"></script>
-  <script defer src="js/main.js?v=25"></script>
+  <script defer src="js/utils.js?v=27"></script>
+  <script defer src="js/storage.js?v=27"></script>
+  <script defer src="js/audio.js?v=27"></script>
+  <script defer src="js/input.js?v=27"></script>
+  <script defer src="js/particles.js?v=27"></script>
+  <script defer src="js/upgrades.js?v=27"></script>
+  <script defer src="js/player.js?v=27"></script>
+  <script defer src="js/enemies.js?v=27"></script>
+  <script defer src="js/bosses.js?v=27"></script>
+  <script defer src="js/ui.js?v=27"></script>
+  <script defer src="js/game.js?v=27"></script>
+  <script defer src="js/main.js?v=27"></script>
 </body>
 </html>

@@ -39,7 +39,9 @@
       this.pickupRangeMult = 1;
       this.pickupRange = 160;
 
-      this.dashCooldown = 3;
+      // 冲刺无冷却：唯一的限制是「不能在上一次冲刺还没结束时再冲」。
+      // 这样玩家的节奏完全由自己的判断决定，而不是被一个 3 秒的读条卡住。
+      this.dashCooldown = 0;
       this.dashCooldownTimer = 0;
       this.dashDuration = 0.18;
       this.dashTimer = 0;
@@ -49,8 +51,19 @@
       // 让「掐时机冲刺穿弹幕」成为可靠的防守手段，而不是刚落地就被子弹收掉。
       this.dashGrace = 0;
       this.dashGraceDuration = 0.14;
-      // 完美闪避统计：冲刺期间被相位消除的敌方子弹数，用于打击反馈与结算。
+      // 完美闪避统计：无敌帧内被命中（含被相位消解的子弹）的次数，用于打击反馈与结算。
       this.perfectDodges = 0;
+      // 完美闪避的内部冷却。没有它的话，「贴着敌人按住冲刺」就能无限刷级，
+      // 那就不是闪避而是挂机了。2.4 秒意味着一场六分钟的对局理论上限约 150 次，
+      // 实战中认真走位的玩家大约能吃到 10~25 次。
+      this.perfectCooldown = 0;
+      this.perfectCooldownDuration = 2.4;
+      // 无尽模式专属：每击破一波 BOSS 累加一层超频，让玩家的成长曲线
+      // 能追得上敌人的对数膨胀。
+      this.overclock = 0;
+      this.bonusDamageMult = 1;
+      this.bonusSpeedMult = 1;
+      this.bonusMaxHp = 0;
       this.invuln = 0;
       this.flashTimer = 0;
       this.recoil = 0;
@@ -119,9 +132,9 @@
       this.executeLevel = lv.execute || 0;
       this.ricochetLevel = lv.ricochet || 0;
 
-      this.damage = Math.max(1, this.baseDamage * this.damageMult);
+      this.damage = Math.max(1, this.baseDamage * this.damageMult * this.bonusDamageMult);
       this.attackInterval = Math.max(0.08, this.baseAttackInterval * this.attackIntervalMult);
-      this.speed = Math.min(370, 220 * this.speedMult);
+      this.speed = Math.min(420, 220 * this.speedMult * this.bonusSpeedMult);
       this.critChance = Math.min(0.7, this.critChance);
       this.pickupRange = Math.min(380, 160 * this.pickupRangeMult);
 
@@ -144,8 +157,11 @@
       this.xpMult = 1 + this.xpLevel * 0.25;
       this.executeBonus = this.executeLevel * 1;
       this.ricochet = this.ricochetLevel;
-      // 冲刺冷却的硬下限 1.2 秒，避免叠加后变成无限相位。
-      this.dashCooldown = Math.max(1.2, 3 * (1 - this.dashCoolLevel * 0.2));
+      // 冲刺完全没有冷却：上一段相位结束就能立刻再冲。
+      // 「伺服过载」因此改成延长相位时长与落地护盾，而不是缩短冷却。
+      this.dashCooldown = 0;
+      this.dashDuration = 0.18 + this.dashCoolLevel * 0.05;
+      this.dashGraceDuration = 0.14 + this.dashCoolLevel * 0.08;
     }
 
     isInvulnerable() {
@@ -178,6 +194,11 @@
     }
 
     hurt(amount, sourceX, sourceY) {
+      // 完美闪避：在相位无敌帧里被任何攻击「命中」时触发。
+      if (this.isPhasing()) {
+        this.registerPerfectDodge(sourceX, sourceY);
+        return 'dodged';
+      }
       if (this.isInvulnerable()) return false;
       if (!this.game || this.game.state !== 'PLAYING') return false;
       const damage = Math.max(1, Math.round(amount));
@@ -224,7 +245,8 @@
     }
 
     tryDash(move) {
-      if (this.dashCooldownTimer > 0 || this.dashTimer > 0) return false;
+      // 冲刺没有冷却，唯一的限制是「一段相位还没走完不能叠加第二段」。
+      if (this.dashTimer > 0) return false;
       let dx = move.x;
       let dy = move.y;
       if (Math.abs(dx) + Math.abs(dy) < 0.05) {
@@ -237,7 +259,7 @@
       this.dashDirY = direction.y;
       this.dashTimer = this.dashDuration;
       this.dashGrace = 0;
-      this.dashCooldownTimer = this.dashCooldown;
+      this.dashCooldownTimer = 0;
       this.trail.length = 0;
       this.game.onDash();
       return true;
@@ -246,13 +268,30 @@
     // 被冲刺无敌帧「相位吞噬」的敌方子弹回调：产生绿色消解特效而不是无声消失，
     // 让玩家明确感知到「这一下我是靠冲刺躲掉的」。
     absorbProjectile(x, y) {
-      this.perfectDodges += 1;
       const game = this.game;
       game.particles.burst(x, y, '#5cffb2', 7, 120, 2.4, 0.32, 'spark');
       game.particles.ring(x, y, '#5cffb2', 4, 20, 0.28, 1.4);
-      if (this.perfectDodges % 12 === 0) {
-        game.particles.label(x, y - 18, 'PHASE', '#5cffb2', 12);
-      }
+      this.registerPerfectDodge(x, y);
+    }
+
+    // 完美闪避：相位无敌帧内本该吃到伤害，实际一滴血没掉。
+    // 每次触发都计入 perfectDodges，但「立刻升一级」带 2.4 秒内部冷却，
+    // 防止贴脸按住冲刺刷级。
+    registerPerfectDodge(x, y) {
+      if (this.perfectCooldown > 0) return false;
+      this.perfectDodges += 1;
+      this.perfectCooldown = this.perfectCooldownDuration;
+      const game = this.game;
+      const px = typeof x === 'number' ? x : this.x;
+      const py = typeof y === 'number' ? y : this.y;
+      game.particles.burst(px, py, '#ffd166', 18, 220, 3, 0.5, 'spark');
+      game.particles.ring(px, py, '#ffd166', 14, 92, 0.5, 3);
+      game.particles.ring(this.x, this.y, '#5cffb2', 10, 62, 0.55, 2.5);
+      game.particles.label(this.x, this.y - 42, 'PERFECT DODGE', '#ffd166', 16);
+      game.audio.play('comboUp');
+      if (game.addScreenShake) game.addScreenShake(4, 0.18);
+      game.onPerfectDodge();
+      return true;
     }
 
     update(dt) {
@@ -278,6 +317,7 @@
         }
       }
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 8);
+      if (this.perfectCooldown > 0) this.perfectCooldown = Math.max(0, this.perfectCooldown - dt);
       if (this.dashCooldownTimer > 0) this.dashCooldownTimer = Math.max(0, this.dashCooldownTimer - dt);
       if (this.dashGrace > 0 && this.dashTimer <= 0) {
         this.dashGrace = Math.max(0, this.dashGrace - dt);
@@ -701,14 +741,16 @@
       }
       ctx.restore();
 
-      if (this.dashCooldownTimer > 0) {
-        const ratio = 1 - this.dashCooldownTimer / this.dashCooldown;
+      // 冲刺没有冷却了，所以画的是「完美闪避」的充能环：
+      // 转满一圈代表下一次完美闪避已经可以再次触发。
+      if (this.perfectCooldown > 0) {
+        const ratio = 1 - this.perfectCooldown / this.perfectCooldownDuration;
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.strokeStyle = 'rgba(0,229,255,0.24)';
-        ctx.lineWidth = 1.1;
+        ctx.strokeStyle = 'rgba(255,209,102,0.34)';
+        ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.arc(0, 0, 27, -Math.PI / 2, -Math.PI / 2 + TAU * ratio);
+        ctx.arc(0, 0, 29, -Math.PI / 2, -Math.PI / 2 + TAU * ratio);
         ctx.stroke();
         ctx.restore();
       }

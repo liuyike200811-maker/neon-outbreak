@@ -65,13 +65,14 @@
         'menu-high-score', 'menu-longest', 'menu-total-kills', 'menu-audio-glyph', 'menu-audio-label',
         'menu-endless-score', 'menu-endless-time', 'menu-endless-wave',
         'btn-mode-standard', 'btn-mode-endless', 'btn-start-label', 'btn-start-sub',
+        'difficulty-picker', 'difficulty-hint',
         'btn-menu-sound',
         'hp-fill', 'hp-text', 'level-text', 'armor-readout', 'timer', 'stage-label',
         'kill-count', 'score-value', 'btn-pause', 'boss-panel', 'boss-name', 'boss-phase',
         'boss-fill', 'boss-percent', 'xp-fill', 'xp-text', 'dash-fill', 'dash-state',
         'module-strip', 'tutorial-hint', 'combo-callout', 'toast', 'dash-meter', 'dash-key-hint',
         'btn-touch-dash', 'pause-level', 'pause-kills', 'pause-time', 'upgrade-cards',
-        'upgrade-level-label', 'result-kicker', 'result-title', 'result-sub', 'result-grade',
+        'upgrade-level-label', 'btn-reroll', 'btn-skip-upgrade', 'result-kicker', 'result-title', 'result-sub', 'result-grade',
         'result-grade-text', 'res-time', 'res-kills', 'res-level', 'res-score', 'res-best',
         'res-wave', 'res-wave-cell',
         'result-newrecord', 'toggle-sound', 'volume-slider', 'volume-value', 'toggle-shake',
@@ -134,6 +135,17 @@
 
       onClick('btn-mode-standard', function () { self.setMode('standard'); });
       onClick('btn-mode-endless', function () { self.setMode('endless'); });
+
+      onClick('btn-reroll', function () { g.rerollChoices(); });
+      onClick('btn-skip-upgrade', function () { g.skipChoices(); });
+
+      const diffPicker = document.getElementById('difficulty-picker');      if (diffPicker) {
+        diffPicker.addEventListener('click', function (event) {
+          const btn = event.target.closest('.diff-btn');
+          if (!btn) return;
+          self.setDifficulty(Number(btn.getAttribute('data-level')));
+        });
+      }
 
       const bossIntro = document.getElementById('screen-boss-intro');
       if (bossIntro) {
@@ -253,7 +265,7 @@
       this.activate('screen-pause', false);
     }
 
-    showLevelUp(choices, level) {
+    showLevelUp(choices, level, rerollsLeft) {
       this.choosing = false;
       if (this.el['upgrade-level-label']) {
         this.el['upgrade-level-label'].textContent = 'LEVEL ' + pad(level, 2);
@@ -293,7 +305,20 @@
       this.levelUpCount = choices.length;
       this.levelUpIndex = 0;
       this.paintLevelUpFocus();
+      this.syncLevelUpActions(rerollsLeft);
       this.activate('screen-levelup', true);
+    }
+
+    // 重抽 / 跳过的按钮状态。次数用完就把按钮置灰，而不是让它点下去没反应。
+    syncLevelUpActions(rerollsLeft) {
+      const left = rerollsLeft === undefined ? (this.game ? this.game.rerollsLeft : 0) : rerollsLeft;
+      const reroll = this.el['btn-reroll'];
+      if (reroll) {
+        const label = reroll.querySelector('b');
+        if (label) label.textContent = left > 0 ? '重抽（剩 ' + left + '）' : '重抽已用尽';
+        reroll.classList.toggle('is-disabled', left <= 0);
+        reroll.disabled = left <= 0;
+      }
     }
 
     /* 键盘光标的可视状态。只在桌面端由左右方向键驱动，
@@ -477,7 +502,40 @@
           ? '设置与纪录已保存在本机浏览器（' + s.gamesPlayed + ' 次作战记录）。'
           : '浏览器已禁用本地存储：游戏可正常进行，但纪录不会保留。';
       }
+      this.syncDifficulty();
       this.updateAudioButton();
+    }
+
+    /* ---------------- difficulty ---------------- */
+
+    // 难度只影响敌人与刷怪节奏，玩家初始属性始终是那一套，不改。
+    syncDifficulty() {
+      const level = Math.round(NO.Storage.get('difficulty') || 1);
+      const prof = NO.difficultyAt ? NO.difficultyAt(level) : null;
+      const picker = this.el['difficulty-picker'] || document.getElementById('difficulty-picker');
+      if (picker) {
+        const buttons = picker.querySelectorAll('.diff-btn');
+        for (let i = 0; i < buttons.length; i += 1) {
+          const btnLevel = Number(buttons[i].getAttribute('data-level'));
+          buttons[i].classList.toggle('is-active', btnLevel === level);
+          buttons[i].setAttribute('aria-pressed', btnLevel === level ? 'true' : 'false');
+        }
+      }
+      const hint = this.el['difficulty-hint'] || document.getElementById('difficulty-hint');
+      if (hint && prof) {
+        hint.textContent = '档位 ' + prof.id + ' · ' + prof.name + ' — 刷怪 ×' + prof.spawn.toFixed(2) +
+          '，敌血 ×' + prof.hp.toFixed(2) + '，接触伤害 ×' + prof.contact.toFixed(2) +
+          '，得分 ×' + prof.score.toFixed(2) + '。';
+      }
+    }
+
+    setDifficulty(level) {
+      const next = Math.max(1, Math.min(6, Math.round(level)));
+      NO.Storage.set('difficulty', next);
+      this.syncDifficulty();
+      NO.GameAudio.play('click');
+      const prof = NO.difficultyAt ? NO.difficultyAt(next) : null;
+      if (prof) this.showToast('威胁等级 ' + prof.id + ' · ' + prof.name, next >= 5 ? 'danger' : 'gold');
     }
 
     updateAudioButton() {
@@ -649,22 +707,26 @@
         this.el['xp-text'].textContent = xpText;
       }
 
-      const dashReady = p.dashCooldownTimer <= 0;
-      const dashPercent = dashReady ? 100 : Math.round((1 - p.dashCooldownTimer / p.dashCooldown) * 100);
+      // 冲刺没有冷却，所以这条进度条改用来显示「完美闪避」的充能：
+      // 转满即代表下一次无敌帧内受击可以再次白拿一级。
+      const perfectReady = !p.perfectCooldown || p.perfectCooldown <= 0;
+      const dashPercent = perfectReady
+        ? 100
+        : Math.round((1 - p.perfectCooldown / (p.perfectCooldownDuration || 2.4)) * 100);
       if (cache.dash !== dashPercent && this.el['dash-fill']) {
         cache.dash = dashPercent;
-        this.el['dash-fill'].style.width = dashPercent + '%';
-        this.el['dash-fill'].style.opacity = dashReady ? '1' : '0.55';
+        this.el['dash-fill'].style.width = Math.max(2, dashPercent) + '%';
+        this.el['dash-fill'].style.opacity = perfectReady ? '1' : '0.6';
       }
-      const dashState = dashReady ? 'READY' : p.dashCooldownTimer.toFixed(1) + 's';
+      const dashState = perfectReady ? 'READY' : p.perfectCooldown.toFixed(1) + 's';
       if (cache.dashState !== dashState && this.el['dash-state']) {
         cache.dashState = dashState;
         this.el['dash-state'].textContent = dashState;
       }
       const dashBar = this.el['btn-touch-dash'];
-      if (dashBar) dashBar.classList.toggle('cooling', !dashReady);
+      if (dashBar) dashBar.classList.toggle('cooling', !perfectReady);
       const dashStateEl = this.el['dash-state'];
-      if (dashStateEl) dashStateEl.classList.toggle('cooling', !dashReady);
+      if (dashStateEl) dashStateEl.classList.toggle('cooling', !perfectReady);
 
       this.updateMeters();
       this.updateModules();

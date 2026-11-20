@@ -401,15 +401,16 @@
     },
     {
       id: 'dashcool',
-      name: '伺服过载',
-      en: 'SERVO OVERDRIVE',
+      name: '相位延展',
+      en: 'PHASE EXTENSION',
       rarity: 'uncommon',
-      maxLevel: 3,
-      desc: function () { return '冲刺冷却缩短 20%。极限冷却受安全阈值保护。'; },
+      maxLevel: 4,
+      desc: function () { return '冲刺无敌帧延长 0.05 秒，落地护盾延长 0.08 秒。冲刺本就无冷却，这是把无敌窗口变宽。'; },
       preview: function (p) {
         const lv = p.upgradeLevels.dashcool || 0;
         return [
-          row('冷却', Math.max(1.2, 3 * (1 - lv * 0.2)), Math.max(1.2, 3 * (1 - (lv + 1) * 0.2)), 'sec')
+          row('相位时长', 0.18 + lv * 0.05, 0.18 + (lv + 1) * 0.05, 'sec'),
+          row('落地护盾', 0.14 + lv * 0.08, 0.14 + (lv + 1) * 0.08, 'sec')
         ];
       },
       apply: function (player) { player.recalculateStats(); }
@@ -470,7 +471,7 @@
     return candidates[candidates.length - 1];
   }
 
-  function pickChoices(player, count) {
+  function pickChoices(player, count, guaranteeRare) {
     const wanted = count || 3;
     const pool = DEFINITIONS.filter(function (def) { return isAvailable(def, player); });
     const chosen = [];
@@ -479,6 +480,34 @@
       chosen.push(pick);
       const index = pool.indexOf(pick);
       if (index !== -1) pool.splice(index, 1);
+    }
+    // 里程碑保底：每 5 级必定给一张稀有以上的卡。
+    // 纯随机权重下，一局十几级都没见过史诗是很常见的，那种体验不是「运气」
+    // 而是「无聊」——玩家会觉得升级只是在堆数值，没有期待感。
+    if (guaranteeRare && chosen.length > 0) {
+      const ranks = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+      const legendaryEnough = chosen.some(function (def) {
+        return ranks.indexOf(def.rarity) >= 2;
+      });
+      if (!legendaryEnough) {
+        const upgradeable = pool.filter(function (def) {
+          return ranks.indexOf(def.rarity) >= 2;
+        });
+        if (upgradeable.length > 0) {
+          const top = weightedPick(upgradeable);
+          // 替换掉当前最弱的一张，保证总数仍是三张。
+          let weakestIndex = 0;
+          let weakestRank = 99;
+          for (let i = 0; i < chosen.length; i += 1) {
+            const r = ranks.indexOf(chosen[i].rarity);
+            if (r < weakestRank) {
+              weakestRank = r;
+              weakestIndex = i;
+            }
+          }
+          chosen[weakestIndex] = top;
+        }
+      }
     }
     if (chosen.length < wanted) {
       // 主卡全部满级后必须仍然稳定给出三张卡，否则界面会只剩一两张，

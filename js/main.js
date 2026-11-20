@@ -103,6 +103,8 @@
         } else if (event.code === 'Digit1' || event.code === 'Numpad1') { event.preventDefault(); ui.chooseIndex(0); }
         else if (event.code === 'Digit2' || event.code === 'Numpad2') { event.preventDefault(); ui.chooseIndex(1); }
         else if (event.code === 'Digit3' || event.code === 'Numpad3') { event.preventDefault(); ui.chooseIndex(2); }
+        else if (event.code === 'KeyR') { event.preventDefault(); game.rerollChoices(); }
+        else if (event.code === 'KeyS' || event.code === 'Escape') { event.preventDefault(); game.skipChoices(); }
         return;
       }
 
