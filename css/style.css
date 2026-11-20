@@ -1673,6 +1673,39 @@ body.touch-device .choose-hint .hint-touch { display: inline-flex; }
 
 /* 难度档位选择器：六个等宽方格，选中档高亮成琥珀色。
    放在设置面板里，因为它是「一次设定、整局生效」的策略项，不是局内操作。 */
+/* 主菜单里的威胁等级条：和模式选择同属「开局前决定」的选项，
+   所以并排放在开始按钮上方，而不是藏进设置里。 */
+.threat-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 11px;
+  width: 100%;
+  max-width: 610px;
+}
+.threat-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: rgba(196, 219, 232, 0.88);
+  white-space: nowrap;
+}
+.threat-label small {
+  font-family: var(--font-mono);
+  font-size: 6px;
+  letter-spacing: 0.2em;
+  color: rgba(127, 148, 180, 0.62);
+}
+.threat-strip .difficulty-hint {
+  font-size: 8px;
+  color: rgba(140, 178, 200, 0.85);
+}
+.threat-strip .difficulty-picker { gap: 4px; }
+
 .difficulty-row { align-items: flex-start; }
 .difficulty-picker {
   display: flex;

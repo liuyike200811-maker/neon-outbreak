@@ -139,13 +139,19 @@
       onClick('btn-reroll', function () { g.rerollChoices(); });
       onClick('btn-skip-upgrade', function () { g.skipChoices(); });
 
-      const diffPicker = document.getElementById('difficulty-picker');      if (diffPicker) {
-        diffPicker.addEventListener('click', function (event) {
+      // 主菜单与设置面板里的两组档位按钮共用同一个委托处理器。
+      const diffPickers = [
+        document.getElementById('difficulty-picker'),
+        document.getElementById('difficulty-picker-menu')
+      ];
+      diffPickers.forEach(function (picker) {
+        if (!picker) return;
+        picker.addEventListener('click', function (event) {
           const btn = event.target.closest('.diff-btn');
           if (!btn) return;
           self.setDifficulty(Number(btn.getAttribute('data-level')));
         });
-      }
+      });
 
       const bossIntro = document.getElementById('screen-boss-intro');
       if (bossIntro) {
@@ -513,24 +519,29 @@
     /* ---------------- difficulty ---------------- */
 
     // 难度只影响敌人与刷怪节奏，玩家初始属性始终是那一套，不改。
+    // 主菜单和设置面板各有一组同样的按钮，两边必须联动——否则会出现
+    // 「主菜单显示 3 档、设置里显示 1 档」这种自相矛盾的状态。
     syncDifficulty() {
       const level = Math.round(NO.Storage.get('difficulty') || 1);
       const prof = NO.difficultyAt ? NO.difficultyAt(level) : null;
-      const picker = this.el['difficulty-picker'] || document.getElementById('difficulty-picker');
-      if (picker) {
-        const buttons = picker.querySelectorAll('.diff-btn');
-        for (let i = 0; i < buttons.length; i += 1) {
-          const btnLevel = Number(buttons[i].getAttribute('data-level'));
-          buttons[i].classList.toggle('is-active', btnLevel === level);
-          buttons[i].setAttribute('aria-pressed', btnLevel === level ? 'true' : 'false');
-        }
+      const buttons = document.querySelectorAll('.diff-btn');
+      for (let i = 0; i < buttons.length; i += 1) {
+        const btnLevel = Number(buttons[i].getAttribute('data-level'));
+        const active = btnLevel === level;
+        buttons[i].classList.toggle('is-active', active);
+        buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
       }
-      const hint = this.el['difficulty-hint'] || document.getElementById('difficulty-hint');
-      if (hint && prof) {
-        hint.textContent = '档位 ' + prof.id + ' · ' + prof.name + ' — 刷怪 ×' + prof.spawn.toFixed(2) +
+      const full = prof
+        ? '档位 ' + prof.id + ' · ' + prof.name + ' — 刷怪 ×' + prof.spawn.toFixed(2) +
           '，敌血 ×' + prof.hp.toFixed(2) + '，接触伤害 ×' + prof.contact.toFixed(2) +
-          '，得分 ×' + prof.score.toFixed(2) + '。';
-      }
+          '，得分 ×' + prof.score.toFixed(2) + '。'
+        : '';
+      const short = prof ? '档位 ' + prof.id + ' · ' + prof.name : '';
+      const settingsHint = document.getElementById('difficulty-hint');
+      if (settingsHint) settingsHint.textContent = full;
+      const menuHint = document.getElementById('difficulty-hint-menu');
+      if (menuHint) menuHint.textContent = short;
+      if (this.el['difficulty-hint']) this.el['difficulty-hint'].textContent = full;
     }
 
     setDifficulty(level) {
