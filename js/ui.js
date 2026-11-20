@@ -267,6 +267,10 @@
 
     showLevelUp(choices, level, rerollsLeft) {
       this.choosing = false;
+      // 连杀飘字是战斗反馈，升级面板弹出来时它已经没有意义了。
+      // 不清掉的话，它会隔着半透明遮罩露在「选择强化模块」标题上，
+      // 看起来像两个标题打架。
+      this.setCombo('');
       if (this.el['upgrade-level-label']) {
         this.el['upgrade-level-label'].textContent = 'LEVEL ' + pad(level, 2);
       }
