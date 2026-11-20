@@ -21,7 +21,7 @@ API_HOST = "api.github.com"
 OWNER = "liuyike200811-maker"
 REPO = "neon-outbreak"
 BRANCH = "main"
-COMMIT_MSG = "1.2.0 · NEON OUTBREAK 更新：无尽模式、升级卡数值预览、敌人血条、击杀音效分层、强化池扩至 22 项"
+COMMIT_MSG = "1.3.0 · NEON OUTBREAK 更新：升级卡支持方向键切换与空格安装、光标高亮与悬停联动、桌面/触屏双套提示"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

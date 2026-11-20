@@ -89,7 +89,18 @@
       }
 
       if (state === 'LEVEL_UP') {
-        if (event.code === 'Digit1' || event.code === 'Numpad1') { event.preventDefault(); ui.chooseIndex(0); }
+        // 桌面端全键盘操作：左右方向键在卡片间移动光标，空格 / 回车安装，
+        // 1/2/3 仍可直接跳选。触摸与鼠标点击不受影响。
+        if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
+          event.preventDefault();
+          ui.moveLevelUpFocus(-1);
+        } else if (event.code === 'ArrowRight' || event.code === 'KeyD') {
+          event.preventDefault();
+          ui.moveLevelUpFocus(1);
+        } else if (event.code === 'Space' || event.code === 'Enter' || event.code === 'NumpadEnter') {
+          event.preventDefault();
+          ui.chooseIndex(ui.levelUpIndex);
+        } else if (event.code === 'Digit1' || event.code === 'Numpad1') { event.preventDefault(); ui.chooseIndex(0); }
         else if (event.code === 'Digit2' || event.code === 'Numpad2') { event.preventDefault(); ui.chooseIndex(1); }
         else if (event.code === 'Digit3' || event.code === 'Numpad3') { event.preventDefault(); ui.chooseIndex(2); }
         return;

@@ -55,6 +55,9 @@
       this.choosing = false;
       this.settingsReturn = 'menu';
       this.selectedMode = 'standard';
+      // 键盘光标在升级卡里停在哪一张（仅桌面端左右方向键切换时使用）
+      this.levelUpIndex = 0;
+      this.levelUpCount = 0;
 
       const ids = [
         'screen-menu', 'screen-hud', 'screen-pause', 'screen-levelup', 'screen-result',
@@ -144,6 +147,16 @@
           if (!card) return;
           const index = Number(card.getAttribute('data-index'));
           if (!Number.isNaN(index)) self.chooseIndex(index);
+        });
+        // 鼠标悬停时同步键盘光标，这样「看着哪张按空格」装的就是哪张。
+        cards.addEventListener('mouseover', function (event) {
+          if (self.game.state !== 'LEVEL_UP') return;
+          const card = event.target.closest('.upgrade-card');
+          if (!card) return;
+          const index = Number(card.getAttribute('data-index'));
+          if (Number.isNaN(index) || index === self.levelUpIndex) return;
+          self.levelUpIndex = index;
+          self.paintLevelUpFocus();
         });
       }
 
@@ -277,7 +290,36 @@
           '</button>';
       }
       container.innerHTML = html;
+      this.levelUpCount = choices.length;
+      this.levelUpIndex = 0;
+      this.paintLevelUpFocus();
       this.activate('screen-levelup', true);
+    }
+
+    /* 键盘光标的可视状态。只在桌面端由左右方向键驱动，
+       鼠标悬停与触摸点击都不依赖它。触摸设备上不绘制这个光标，
+       避免「第一张永远亮着」误导玩家。 */
+    paintLevelUpFocus() {
+      const container = this.el['upgrade-cards'];
+      if (!container) return;
+      const keyboardDriven = !NO.Utils.isTouchDevice();
+      const cards = container.querySelectorAll('.upgrade-card');
+      for (let i = 0; i < cards.length; i += 1) {
+        const active = keyboardDriven && i === this.levelUpIndex;
+        cards[i].classList.toggle('is-focused', active);
+        cards[i].setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+    }
+
+    /* 左右方向键移动光标。循环切换，避免在两端卡住。 */
+    moveLevelUpFocus(delta) {
+      if (this.game.state !== 'LEVEL_UP' || !this.levelUpCount) return false;
+      const next = (this.levelUpIndex + delta + this.levelUpCount) % this.levelUpCount;
+      if (next === this.levelUpIndex) return false;
+      this.levelUpIndex = next;
+      this.paintLevelUpFocus();
+      NO.GameAudio.play('click');
+      return true;
     }
 
     /* 「装之前 / 装之后」的真实数值对照。数据来自 NO.Upgrades.previewFor，
@@ -305,12 +347,15 @@
 
     hideLevelUp() {
       this.activate('screen-levelup', false);
+      this.levelUpCount = 0;
+      this.levelUpIndex = 0;
       const container = this.el['upgrade-cards'];
       if (container) container.innerHTML = '';
     }
 
     chooseIndex(index) {
       if (this.choosing || this.game.state !== 'LEVEL_UP') return;
+      if (index < 0 || index >= this.levelUpCount) return;
       this.choosing = true;
       const container = this.el['upgrade-cards'];
       const card = container ? container.querySelector('[data-index="' + index + '"]') : null;

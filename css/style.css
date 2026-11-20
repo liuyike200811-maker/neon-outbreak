@@ -1156,6 +1156,24 @@ kbd.wide { min-width: 55px; }
 .upgrade-card:hover { transform: translateY(-5px); border-color: var(--rarity); box-shadow: 0 12px 38px rgba(0, 0, 0, 0.28), 0 0 24px color-mix(in srgb, var(--rarity) 12%, transparent); background: linear-gradient(160deg, rgba(22, 44, 70, 0.96), rgba(7, 16, 29, 0.98)); }
 .upgrade-card:active { transform: translateY(-1px) scale(0.993); }
 .upgrade-card.selected { animation: cardInstall 0.25s ease-out; }
+/* 键盘光标：与鼠标 hover 同等的视觉重量，外加一圈外发光，方便一眼看出当前焦点 */
+.upgrade-card.is-focused {
+  transform: translateY(-5px);
+  border-color: var(--rarity);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.32), 0 0 0 1px color-mix(in srgb, var(--rarity) 55%, transparent), 0 0 30px color-mix(in srgb, var(--rarity) 22%, transparent);
+  background: linear-gradient(160deg, rgba(22, 44, 70, 0.96), rgba(7, 16, 29, 0.98));
+}
+.upgrade-card.is-focused::after { opacity: 1; }
+.upgrade-card.is-focused .install-cue { color: var(--rarity); }
+.upgrade-card.is-focused .install-cue span:last-child { animation: focusBlink 1.1s steps(2, end) infinite; }
+/* 光标卡：安装提示换成高亮文字，避免只靠亮度区分 */
+.upgrade-card.is-focused .install-cue span:first-child::after { content: " · SELECTED"; }
+/* 非光标卡整体压暗，让焦点卡跳出来；触摸设备上没有键盘光标，全部保持原亮度 */
+body:not(.touch-device) .upgrade-card:not(.is-focused):not(:hover):not(.selected) { opacity: 0.7; }
+@keyframes focusBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .upgrade-card.is-focused .install-cue span:last-child { animation: none; }
+}
 @keyframes cardInstall { 0% { filter: brightness(2); transform: scale(1.015); } 100% { filter: brightness(1); transform: scale(1); } }
 
 .upgrade-card.rarity-common { --rarity: #8aa4bf; }
@@ -1193,6 +1211,13 @@ kbd.wide { min-width: 55px; }
 .install-cue span:last-child { font-size: 12px; }
 .choose-hint { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 24px 0 0; color: rgba(127, 148, 180, 0.66); font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.08em; }
 .choose-hint span { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid rgba(127, 148, 180, 0.3); color: var(--muted); font-size: 7px; }
+.choose-hint span.hint-wide { width: auto; padding: 0 5px; letter-spacing: 0.06em; }
+/* 提示分两套：桌面显示按键，触屏显示点按。容器本身不要继承上面的小方块边框。 */
+.choose-hint .hint-keys,
+.choose-hint .hint-touch { display: inline-flex; align-items: center; gap: 6px; width: auto; height: auto; border: 0; padding: 0; font-size: inherit; letter-spacing: inherit; color: inherit; }
+.choose-hint .hint-touch { display: none; }
+body.touch-device .choose-hint .hint-keys { display: none; }
+body.touch-device .choose-hint .hint-touch { display: inline-flex; }
 
 /* ---------------- Results ---------------- */
 
