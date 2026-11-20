@@ -7,7 +7,7 @@
   <meta name="description" content="NEON OUTBREAK — 霓虹禁区：最后防线。六分钟，两个核心，最后一次撤离机会。">
   <title>霓虹禁区：最后防线 // NEON OUTBREAK</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body>
   <div id="app">
@@ -29,7 +29,7 @@
           <button id="btn-menu-sound" class="icon-btn audio-btn" type="button" aria-label="切换声音">
             <span class="audio-glyph" id="menu-audio-glyph">◖</span><span id="menu-audio-label">AUDIO ON</span>
           </button>
-          <span class="build-tag" id="build-tag" title="1.1.0 是功能版本号；v18 是本次构建的缓存标记">BUILD 1.1.0 · v18</span>
+          <span class="build-tag" id="build-tag" title="1.2.0 是功能版本号；v23 是本次构建的缓存标记">BUILD 1.2.0 · v23</span>
         </div>
       </header>
 
@@ -40,10 +40,21 @@
           <div class="logo-cn"><span>霓虹禁区</span><i></i><em>最后防线</em></div>
           <p class="tagline">六分钟。两个核心。最后一次撤离机会。</p>
 
+          <div class="mode-strip" role="group" aria-label="任务模式">
+            <button id="btn-mode-standard" class="mode-btn is-active" type="button" data-mode="standard">
+              <span class="mode-name">标准任务</span>
+              <span class="mode-meta">6:00 · 双核心</span>
+            </button>
+            <button id="btn-mode-endless" class="mode-btn" type="button" data-mode="endless">
+              <span class="mode-name">无尽模式</span>
+              <span class="mode-meta">越久越强 · 循环 BOSS</span>
+            </button>
+          </div>
+
           <div class="menu-actions">
             <button id="btn-start" class="btn btn-primary" type="button">
               <span class="btn-icon">▶</span>
-              <span class="btn-copy"><b>开始任务</b><small>INITIATE PROTOCOL</small></span>
+              <span class="btn-copy"><b id="btn-start-label">开始任务</b><small id="btn-start-sub">STANDARD · 6:00</small></span>
               <span class="btn-key">ENTER</span>
             </button>
             <button id="btn-instructions" class="btn" type="button">
@@ -66,6 +77,21 @@
             <div class="record-cell">
               <span class="record-label">TOTAL KILLS</span>
               <strong id="menu-total-kills">0</strong>
+            </div>
+          </div>
+
+          <div class="record-strip endless-strip" aria-label="无尽纪录">
+            <div class="record-cell">
+              <span class="record-label">ENDLESS BEST</span>
+              <strong id="menu-endless-score">000000</strong>
+            </div>
+            <div class="record-cell">
+              <span class="record-label">ENDLESS TIME</span>
+              <strong id="menu-endless-time">00:00</strong>
+            </div>
+            <div class="record-cell">
+              <span class="record-label">BEST WAVE</span>
+              <strong id="menu-endless-wave">00</strong>
             </div>
           </div>
         </div>
@@ -246,6 +272,7 @@
           <div><span>SURVIVAL TIME</span><b id="res-time">00:00</b></div>
           <div><span>ELIMINATIONS</span><b id="res-kills">0</b></div>
           <div><span>FINAL LEVEL</span><b id="res-level">1</b></div>
+          <div id="res-wave-cell" class="hidden"><span>WAVE REACHED</span><b id="res-wave">01</b></div>
           <div><span>FINAL SCORE</span><b id="res-score">0</b></div>
           <div class="result-best"><span>PERSONAL BEST</span><b id="res-best">0</b></div>
         </div>
@@ -361,17 +388,17 @@
     </noscript>
   </div>
 
-  <script defer src="js/utils.js?v=18"></script>
-  <script defer src="js/storage.js?v=18"></script>
-  <script defer src="js/audio.js?v=18"></script>
-  <script defer src="js/input.js?v=18"></script>
-  <script defer src="js/particles.js?v=18"></script>
-  <script defer src="js/upgrades.js?v=18"></script>
-  <script defer src="js/player.js?v=18"></script>
-  <script defer src="js/enemies.js?v=18"></script>
-  <script defer src="js/bosses.js?v=18"></script>
-  <script defer src="js/ui.js?v=18"></script>
-  <script defer src="js/game.js?v=18"></script>
-  <script defer src="js/main.js?v=18"></script>
+  <script defer src="js/utils.js?v=23"></script>
+  <script defer src="js/storage.js?v=23"></script>
+  <script defer src="js/audio.js?v=23"></script>
+  <script defer src="js/input.js?v=23"></script>
+  <script defer src="js/particles.js?v=23"></script>
+  <script defer src="js/upgrades.js?v=23"></script>
+  <script defer src="js/player.js?v=23"></script>
+  <script defer src="js/enemies.js?v=23"></script>
+  <script defer src="js/bosses.js?v=23"></script>
+  <script defer src="js/ui.js?v=23"></script>
+  <script defer src="js/game.js?v=23"></script>
+  <script defer src="js/main.js?v=23"></script>
 </body>
 </html>

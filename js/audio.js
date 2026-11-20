@@ -182,19 +182,60 @@
       };
     },
 
-    play: function (name) {
+    play: function (name, options) {
       if (!this.enabled) return;
       if (!this.ctx) this.init();
       if (!this.ctx) return;
       if (this.ctx.state === 'suspended') this.unlock();
       const gaps = {
-        shoot: 42, hit: 30, pickup: 32, kill: 34, click: 25, enemyShoot: 45, explode: 45
+        shoot: 42, hit: 30, pickup: 32, kill: 34, click: 25, enemyShoot: 45, explode: 45,
+        killLight: 26, killHeavy: 40, killPop: 30, killZap: 30, eliteKill: 45, comboUp: 120,
+        ricochet: 40, shield: 90
       };
       if (gaps[name] && !this._throttle(name, gaps[name])) return;
       if (this.activeSources > 40) return;
 
+      // 连杀音调上扬：detune 是击杀链长度，1 半音一级，最多 +6 半音。
+      const detune = options && options.detune ? Math.min(6, Math.max(0, options.detune)) : 0;
+      const mul = Math.pow(2, detune / 12);
+
       try {
         switch (name) {
+          /* ---- 击杀分层：五种敌人五种音色，靠基频与波形区分，不共用同一个音效 ---- */
+          case 'killLight':
+            this.tone({ frequency: 720 * mul, target: 240 * mul, duration: 0.09, type: 'square', gain: 0.05 });
+            this.noise({ duration: 0.075, frequency: 2400, target: 900, gain: 0.038, q: 1.4 });
+            break;
+          case 'killHeavy':
+            this.tone({ frequency: 168 * mul, target: 54 * mul, duration: 0.2, type: 'sawtooth', gain: 0.1 });
+            this.noise({ duration: 0.22, frequency: 900, target: 180, gain: 0.1, filterType: 'lowpass' });
+            this.tone({ frequency: 420, target: 180, duration: 0.07, type: 'square', gain: 0.03 });
+            break;
+          case 'killPop':
+            this.tone({ frequency: 520 * mul, target: 90 * mul, duration: 0.12, type: 'triangle', gain: 0.075 });
+            this.noise({ duration: 0.16, frequency: 1700, target: 260, gain: 0.09, q: 0.8 });
+            break;
+          case 'killZap':
+            this.tone({ frequency: 1240 * mul, target: 420 * mul, duration: 0.11, type: 'sawtooth', gain: 0.05 });
+            this.tone({ frequency: 1860 * mul, target: 740 * mul, duration: 0.06, type: 'square', gain: 0.026 });
+            break;
+          case 'eliteKill':
+            this.tone({ frequency: 92 * mul, target: 38 * mul, duration: 0.34, type: 'sawtooth', gain: 0.14 });
+            this.tone({ frequency: 1180 * mul, target: 260 * mul, duration: 0.3, type: 'triangle', gain: 0.06, delay: 0.06 });
+            this.noise({ duration: 0.4, frequency: 1400, target: 120, gain: 0.13, filterType: 'lowpass' });
+            break;
+          case 'comboUp':
+            this.tone({ frequency: 660, duration: 0.09, type: 'triangle', gain: 0.075 });
+            this.tone({ frequency: 990, duration: 0.09, type: 'triangle', gain: 0.07, delay: 0.07 });
+            this.tone({ frequency: 1320, duration: 0.16, type: 'triangle', gain: 0.07, delay: 0.14 });
+            break;
+          case 'ricochet':
+            this.tone({ frequency: 1500, target: 2100, duration: 0.07, type: 'triangle', gain: 0.04 });
+            break;
+          case 'shield':
+            this.tone({ frequency: 300, target: 900, duration: 0.16, type: 'sine', gain: 0.08 });
+            this.noise({ duration: 0.2, frequency: 2600, target: 900, gain: 0.05, filterType: 'highpass' });
+            break;
           case 'click':
             this.tone({ frequency: 760, target: 1180, duration: 0.045, type: 'triangle', gain: 0.08 });
             this.tone({ frequency: 380, duration: 0.03, type: 'square', gain: 0.025 });

@@ -83,7 +83,7 @@
       if (state === 'MENU') {
         if (event.code === 'Enter' && !isTyping(event.target)) {
           event.preventDefault();
-          game.start();
+          game.start(ui.selectedMode);
         }
         return;
       }
@@ -98,7 +98,7 @@
       if (state === 'GAME_OVER' || state === 'VICTORY') {
         if (event.code === 'Enter' && !isTyping(event.target)) {
           event.preventDefault();
-          game.start();
+          game.start(game.mode);
         }
         return;
       }
@@ -246,7 +246,10 @@
     NO.test = {
       game: game,
       ui: ui,
-      start: function () { game.start(); return game.state; },
+      start: function (mode) {
+        game.start(mode === 'endless' ? 'endless' : (mode === 'standard' ? 'standard' : ui.selectedMode));
+        return game.state;
+      },
       skipIntro: function () { game.skipBossIntro(); return game.state; },
       advance: function (seconds, dt) {
         const delta = dt || 1 / 60;
@@ -259,8 +262,8 @@
         ui.chooseIndex(index);
         return 'chosen';
       },
-      forceBoss: function (final) {
-        game.spawnBoss(Boolean(final));
+      forceBoss: function (final, hpScale) {
+        game.spawnBoss(Boolean(final), hpScale);
         game.finishBossIntro();
         return game.boss ? game.boss.name : null;
       },
@@ -277,6 +280,8 @@
       state: function () {
         return {
           state: game.state,
+          mode: game.mode,
+          endlessCycle: game.endlessCycle,
           elapsed: Number(game.elapsed.toFixed(2)),
           hp: game.player ? Number(game.player.hp.toFixed(2)) : 0,
           maxHp: game.player ? game.player.maxHp : 0,

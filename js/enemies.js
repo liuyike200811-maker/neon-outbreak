@@ -225,9 +225,9 @@
         ctx.restore();
       }
 
-      if (this.isElite || (this.kind === 'tank' && this.hp < this.maxHp)) {
-        this.drawHealthBar(ctx);
-      }
+      // 血条常显：五种敌人都有自己的血条，宽度/厚度按体型区分。
+      // 满血的杂兵压到半透明，避免几十条血条糊满画面；受损后立刻变成实色。
+      this.drawHealthBar(ctx);
     }
 
     drawBody(ctx, flash) {
@@ -242,16 +242,23 @@
     drawTelegraph() {}
 
     drawHealthBar(ctx) {
-      const width = this.radius * 2;
       const ratio = U.clamp(this.hp / this.maxHp, 0, 1);
+      // 体型小的单位用更窄的条，避免小怪血条互相叠在一起。
+      const width = Math.max(18, this.radius * 2);
+      const thick = this.isElite ? 5 : this.kind === 'tank' ? 4 : 3;
+      const damaged = ratio < 0.999;
+      // 满血杂兵弱化显示：画面里几十个敌人时，全亮血条会像贴纸一样糊住场景。
+      const alpha = this.isElite || damaged ? 1 : 0.42;
       ctx.save();
-      ctx.translate(this.x - width / 2, this.y - this.radius - 12);
+      ctx.globalAlpha = alpha;
+      ctx.translate(this.x - width / 2, this.y - this.radius - 11);
       ctx.fillStyle = 'rgba(2,6,12,0.82)';
-      ctx.fillRect(0, 0, width, 4);
+      ctx.fillRect(0, 0, width, thick);
       ctx.fillStyle = ratio > 0.45 ? this.color : '#ff365e';
-      ctx.fillRect(0, 0, width * ratio, 4);
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-      ctx.strokeRect(0, 0, width, 4);
+      ctx.fillRect(0, 0, width * ratio, thick);
+      ctx.strokeStyle = this.isElite ? 'rgba(185,139,255,0.55)' : 'rgba(255,255,255,0.14)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-0.5, -0.5, width + 1, thick + 1);
       ctx.restore();
     }
   }

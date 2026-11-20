@@ -17,6 +17,31 @@
     return String(value).padStart(length, '0');
   }
 
+  // 把升级卡预览里的原始数值格式化成玩家看得懂的单位。
+  function formatPreview(value, fmt) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    switch (fmt) {
+      case 'pct': {
+        const pct = n <= 1 ? n * 100 : n;
+        return (pct >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10) + '%';
+      }
+      case 'x':
+        return '×' + (Math.round(n * 100) / 100).toFixed(2);
+      case 'sec':
+        return (Math.round(n * 100) / 100).toFixed(2) + 's';
+      case 'rate':
+        return (Math.round(n * 100) / 100).toFixed(2) + '/s';
+      case 'hp':
+      case 'score':
+        return String(Math.round(n));
+      case 'int':
+        return String(Math.round(n));
+      default:
+        return n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
+    }
+  }
+
   class UI {
     constructor(game) {
       this.game = game;
@@ -29,11 +54,14 @@
       this.volumeSaveTimer = 0;
       this.choosing = false;
       this.settingsReturn = 'menu';
+      this.selectedMode = 'standard';
 
       const ids = [
         'screen-menu', 'screen-hud', 'screen-pause', 'screen-levelup', 'screen-result',
         'screen-settings', 'screen-instructions', 'screen-boss-intro',
         'menu-high-score', 'menu-longest', 'menu-total-kills', 'menu-audio-glyph', 'menu-audio-label',
+        'menu-endless-score', 'menu-endless-time', 'menu-endless-wave',
+        'btn-mode-standard', 'btn-mode-endless', 'btn-start-label', 'btn-start-sub',
         'btn-menu-sound',
         'hp-fill', 'hp-text', 'level-text', 'armor-readout', 'timer', 'stage-label',
         'kill-count', 'score-value', 'btn-pause', 'boss-panel', 'boss-name', 'boss-phase',
@@ -42,6 +70,7 @@
         'btn-touch-dash', 'pause-level', 'pause-kills', 'pause-time', 'upgrade-cards',
         'upgrade-level-label', 'result-kicker', 'result-title', 'result-sub', 'result-grade',
         'result-grade-text', 'res-time', 'res-kills', 'res-level', 'res-score', 'res-best',
+        'res-wave', 'res-wave-cell',
         'result-newrecord', 'toggle-sound', 'volume-slider', 'volume-value', 'toggle-shake',
         'storage-status', 'fx-flash', 'boss-intro-name', 'boss-intro-sub', 'boss-intro-phase',
         'meter-stack', 'meter-damage', 'meter-damage-val', 'meter-rate', 'meter-rate-val',
@@ -86,7 +115,7 @@
         });
       }
 
-      onClick('btn-start', function () { g.start(); });
+      onClick('btn-start', function () { g.start(self.selectedMode); });
       onClick('btn-instructions', function () { self.showInstructions(); });
       onClick('btn-instructions-close', function () { self.hide('screen-instructions'); });
       onClick('btn-settings', function () { self.openSettings('menu'); });
@@ -95,10 +124,13 @@
       onClick('btn-pause', function () { g.pause(); });
       onClick('btn-resume', function () { g.resume(); });
       onClick('btn-pause-settings', function () { self.openSettings('pause'); });
-      onClick('btn-pause-restart', function () { g.start(); });
+      onClick('btn-pause-restart', function () { g.start(g.mode); });
       onClick('btn-pause-menu', function () { g.backToMenu(); });
-      onClick('btn-result-restart', function () { g.start(); });
+      onClick('btn-result-restart', function () { g.start(g.mode); });
       onClick('btn-result-menu', function () { g.backToMenu(); });
+
+      onClick('btn-mode-standard', function () { self.setMode('standard'); });
+      onClick('btn-mode-endless', function () { self.setMode('endless'); });
 
       const bossIntro = document.getElementById('screen-boss-intro');
       if (bossIntro) {
@@ -236,6 +268,7 @@
           '<h3>' + def.name + '</h3>' +
           '<p class="upgrade-en">' + def.en + '</p>' +
           '<p class="upgrade-desc">' + def.desc(player) + '</p>' +
+          this.renderPreview(def, player) +
           '<div class="upgrade-levels">' +
           '<div class="level-pips">' + pipHtml + '</div>' +
           '<div class="upgrade-level-text"><span>MODULE LEVEL</span><strong>' + levelNow + ' / ' + maxLabel + '</strong></div>' +
@@ -245,6 +278,29 @@
       }
       container.innerHTML = html;
       this.activate('screen-levelup', true);
+    }
+
+    /* 「装之前 / 装之后」的真实数值对照。数据来自 NO.Upgrades.previewFor，
+       直接读当前玩家属性，因此数字和实际生效结果永远一致。 */
+    renderPreview(def, player) {
+      const rows = NO.Upgrades.previewFor(def, player, this.game);
+      if (!rows || !rows.length) return '';
+      let body = '';
+      for (let i = 0; i < rows.length; i += 1) {
+        const r = rows[i];
+        const from = formatPreview(r.from, r.fmt);
+        const to = formatPreview(r.to, r.fmt);
+        // 数值型升级（冷却时间）是「越小越好」，方向要反过来才有意义。
+        const better = r.fmt === 'sec' ? r.to < r.from : r.to > r.from;
+        body +=
+          '<div class="preview-row">' +
+          '<span class="preview-label">' + r.label + '</span>' +
+          '<span class="preview-from">' + from + '</span>' +
+          '<span class="preview-arrow">▸</span>' +
+          '<span class="preview-value' + (better ? ' is-up' : '') + '">' + to + '</span>' +
+          '</div>';
+      }
+      return '<div class="upgrade-preview">' + body + '</div>';
     }
 
     hideLevelUp() {
@@ -422,7 +478,32 @@
       if (this.el['menu-high-score']) this.el['menu-high-score'].textContent = U.formatScore(s.highScore || 0);
       if (this.el['menu-longest']) this.el['menu-longest'].textContent = U.formatTime(s.longestTime);
       if (this.el['menu-total-kills']) this.el['menu-total-kills'].textContent = U.formatScore(s.totalKills);
+      if (this.el['menu-endless-score']) this.el['menu-endless-score'].textContent = U.formatScore(s.endlessHighScore || 0);
+      if (this.el['menu-endless-time']) this.el['menu-endless-time'].textContent = U.formatTime(s.endlessBestTime || 0);
+      if (this.el['menu-endless-wave']) {
+        const wave = Math.floor(s.endlessBestWave || 0);
+        this.el['menu-endless-wave'].textContent = (wave < 10 ? '0' : '') + wave;
+      }
       this.updateAudioButton();
+    }
+
+    /* 模式切换：只改 UI 选择，真正的模式在 game.start(mode) 时传入，
+       这样在菜单里反复点击不会影响正在进行的对局。 */
+    setMode(mode) {
+      this.selectedMode = mode === 'endless' ? 'endless' : 'standard';
+      const standard = this.el['btn-mode-standard'];
+      const endless = this.el['btn-mode-endless'];
+      if (standard) standard.classList.toggle('is-active', this.selectedMode === 'standard');
+      if (endless) endless.classList.toggle('is-active', this.selectedMode === 'endless');
+      if (this.el['btn-start-label']) {
+        this.el['btn-start-label'].textContent = this.selectedMode === 'endless' ? '开始无尽' : '开始任务';
+      }
+      if (this.el['btn-start-sub']) {
+        this.el['btn-start-sub'].textContent = this.selectedMode === 'endless'
+          ? 'ENDLESS · 无上限'
+          : 'STANDARD · 6:00';
+      }
+      NO.GameAudio.play('click');
     }
 
     /* ---------------- results ---------------- */
@@ -436,17 +517,26 @@
       if (screen) screen.classList.toggle('victory', Boolean(result.victory));
 
       if (this.el['result-kicker']) this.el['result-kicker'].textContent = result.victory ? 'MISSION COMPLETE' : 'MISSION FAILED';
-      if (this.el['result-title']) this.el['result-title'].textContent = result.victory ? '撤离成功' : '防线失守';
+      if (this.el['result-title']) {
+        this.el['result-title'].textContent = result.victory ? '撤离成功' : (result.endless ? '信号中断' : '防线失守');
+      }
       if (this.el['result-sub']) {
         this.el['result-sub'].textContent = result.victory
           ? 'OMEGA 核心已被摧毁。NEON-07 的夜空第一次安静下来。'
-          : '连接中断。NEON-07 被机械潮彻底吞没。';
+          : result.endless
+            ? '无尽协议终止。你在机械潮里留下的击杀数字，就是这座城市最后的记录。'
+            : '连接中断。NEON-07 被机械潮彻底吞没。';
       }
       if (this.el['result-grade']) this.el['result-grade'].textContent = result.grade;
       if (this.el['result-grade-text']) this.el['result-grade-text'].textContent = GRADE_TEXT[result.grade] || '战术评级';
       if (this.el['res-time']) this.el['res-time'].textContent = U.formatTime(result.time);
       if (this.el['res-kills']) this.el['res-kills'].textContent = U.formatScore(result.kills);
       if (this.el['res-level']) this.el['res-level'].textContent = 'LV ' + result.level;
+      if (this.el['res-wave']) {
+        const wave = Math.floor(result.wave || 0);
+        this.el['res-wave'].textContent = (wave < 10 ? '0' : '') + wave;
+      }
+      if (this.el['res-wave-cell']) this.el['res-wave-cell'].classList.toggle('hidden', !result.endless);
       if (this.el['res-score']) this.el['res-score'].textContent = U.formatScore(result.score);
       if (this.el['res-best']) this.el['res-best'].textContent = U.formatScore(result.best);
       if (this.el['result-newrecord']) this.el['result-newrecord'].classList.toggle('hidden', !result.newRecord);

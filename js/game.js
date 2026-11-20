@@ -21,6 +21,8 @@
   const BOSS_ONE_TIME = 180;
   const BOSS_TWO_TIME = 360;
 
+  const MODE = Object.freeze({ STANDARD: 'standard', ENDLESS: 'endless' });
+
   /* ------------------------------------------------------------------
      Player projectile - real travel, arcade collision, pierce support
      ------------------------------------------------------------------ */
@@ -38,11 +40,16 @@
       this.crit = Boolean(config.crit);
       this.pierce = config.pierce || 0;
       this.frostChance = config.frostChance || 0;
+      this.homing = config.homing || 0;
+      this.ricochet = config.ricochet || 0;
+      this.executeBonus = config.executeBonus || 0;
       this.color = config.color || '#9dfbff';
       this.life = 1.35;
       this.dead = false;
       this.hitIds = null;
       this.trailTimer = 0;
+      this.target = null;
+      this.retargetTimer = 0;
     }
 
     update(dt) {
@@ -50,6 +57,24 @@
       if (this.life <= 0) {
         this.dead = true;
         return;
+      }
+      // 追踪弹道：轻微修正航向，不改变速度大小，所以不会因此「瞬移」。
+      if (this.homing > 0) {
+        this.retargetTimer -= dt;
+        if (this.retargetTimer <= 0 || !this.target || !this.target.alive || this.target.dead) {
+          this.retargetTimer = 0.16;
+          this.target = this.game.getNearestTarget(this.x, this.y, 460);
+        }
+        const target = this.target;
+        if (target && target.alive && !target.dead) {
+          const desired = Math.atan2(target.y - this.y, target.x - this.x);
+          const diff = U.shortestAngle(this.angle, desired);
+          const maxStep = this.homing * dt * 0.9;
+          this.angle += Math.abs(diff) <= maxStep ? diff : Math.sign(diff) * maxStep;
+          const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+          this.vx = Math.cos(this.angle) * speed;
+          this.vy = Math.sin(this.angle) * speed;
+        }
       }
       this.x += this.vx * dt;
       this.y += this.vy * dt;
@@ -235,6 +260,13 @@
       this.pendingLevelUps = 0;
       this.levelChoices = null;
 
+      // 模式：标准任务是 6 分钟定点剧本，无尽模式越过 360 秒后继续加压，
+      // BOSS 按周期重生并逐轮变强，直到玩家阵亡。
+      this.mode = MODE.STANDARD;
+      this.endlessCycle = 0;
+      this.nextBossAt = 0;
+      this.omegaUnlocked = false;
+
       this.camera = { x: 0, y: 0 };
       this.shakeMagnitude = 0;
       this.shakeTime = 0;
@@ -300,8 +332,9 @@
 
     /* ---------------- run lifecycle ---------------- */
 
-    start() {
+    start(mode) {
       this.resetRun();
+      this.mode = mode === MODE.ENDLESS ? MODE.ENDLESS : MODE.STANDARD;
       this.state = STATE.PLAYING;
       this.runActive = true;
       if (this.ui) {
@@ -349,6 +382,10 @@
       this.shakeX = 0;
       this.shakeY = 0;
       this.lastStageLabel = '';
+      this.mode = MODE.STANDARD;
+      this.endlessCycle = 0;
+      this.nextBossAt = 0;
+      this.omegaUnlocked = false;
 
       this.player = new NO.Player(this, 0, 0);
       this.player.level = 1;
@@ -412,7 +449,8 @@
 
     gainXp(amount) {
       if (this.state !== STATE.PLAYING) return;
-      this.xp += amount;
+      const mult = this.player ? this.player.xpMult : 1;
+      this.xp += amount * mult;
       while (this.xp >= this.xpNeeded) {
         this.xp -= this.xpNeeded;
         this.player.level += 1;
@@ -504,7 +542,14 @@
     }
 
     scaleEnemy(enemy) {
-      const minutes = Math.min(6, this.elapsed / 60);
+      let minutes = this.elapsed / 60;
+      if (this.mode === MODE.ENDLESS && minutes > 6) {
+        // 无尽模式：六分钟之后仍继续变强，但走对数增长，避免十分钟时出现
+        // 血条是屏幕宽度的敌人（那种数值失控只会让玩家放弃而不是更紧张）。
+        minutes = 6 + Math.log2(1 + (minutes - 6)) * 1.6;
+      } else {
+        minutes = Math.min(6, minutes);
+      }
       const hpScale = 1 + minutes * 0.16;
       const speedScale = 1 + minutes * 0.035;
       enemy.maxHp = Math.round(enemy.maxHp * hpScale);
@@ -587,6 +632,80 @@
       this.addScreenShake(2.4, 0.12);
     }
 
+    // 跳弹：命中后改向最近的另一个敌人，返回是否找到了新的弹射目标。
+    redirectBullet(bullet, from) {
+      let best = null;
+      let bestDistance = 300 * 300;
+      for (let i = 0; i < this.enemies.length; i += 1) {
+        const other = this.enemies[i];
+        if (!other.alive || other.dead || other === from || other.spawnTimer > 0) continue;
+        const dx = other.x - bullet.x;
+        const dy = other.y - bullet.y;
+        const distance = dx * dx + dy * dy;
+        if (distance <= bestDistance) {
+          bestDistance = distance;
+          best = other;
+        }
+      }
+      if (!best && this.boss && !this.boss.dead && from !== this.boss) best = this.boss;
+      if (!best) return false;
+      const speed = Math.sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+      bullet.angle = Math.atan2(best.y - bullet.y, best.x - bullet.x);
+      bullet.vx = Math.cos(bullet.angle) * speed;
+      bullet.vy = Math.sin(bullet.angle) * speed;
+      this.particles.ring(bullet.x, bullet.y, '#c9a6ff', 4, 24, 0.24, 2);
+      this.audio.play('ricochet');
+      return true;
+    }
+
+    // 反制装甲的伤害反弹：按坐标找到来源单位，直接结算伤害。
+    reflectDamage(sourceX, sourceY, amount) {
+      const value = Math.max(1, Math.round(amount));
+      let dealt = false;
+      for (let i = 0; i < this.enemies.length; i += 1) {
+        const enemy = this.enemies[i];
+        if (!enemy.alive || enemy.dead) continue;
+        if (U.distance(enemy.x, enemy.y, sourceX, sourceY) > enemy.radius + 34) continue;
+        enemy.damage(value, Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x), { knockback: 60 });
+        this.particles.damageText(enemy.x, enemy.y - enemy.radius - 6, value, '#9dfbff', false, 0.9);
+        dealt = true;
+        break;
+      }
+      if (!dealt && this.boss && !this.boss.dead) {
+        if (U.distance(this.boss.x, this.boss.y, sourceX, sourceY) <= this.boss.radius + 40) {
+          this.boss.damage(value, Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x), {});
+          dealt = true;
+        }
+      }
+      return dealt;
+    }
+
+    // 相位冲击：冲刺收尾的环形电磁爆。
+    triggerDashBlast(radius, damage) {
+      this.particles.ring(this.player.x, this.player.y, '#00e5ff', 10, radius, 0.34, 3.2);
+      this.particles.ring(this.player.x, this.player.y, '#965bff', 5, radius * 0.65, 0.24, 2);
+      let hit = false;
+      for (let i = 0; i < this.enemies.length; i += 1) {
+        const enemy = this.enemies[i];
+        if (!enemy.alive || enemy.dead) continue;
+        if (U.distance(this.player.x, this.player.y, enemy.x, enemy.y) <= radius + enemy.radius) {
+          enemy.damage(damage, Math.atan2(enemy.y - this.player.y, enemy.x - this.player.x), { knockback: 120 });
+          this.particles.hit(enemy.x, enemy.y, 0, '#9dfbff', false);
+          hit = true;
+        }
+      }
+      if (this.boss && !this.boss.dead) {
+        if (U.distance(this.player.x, this.player.y, this.boss.x, this.boss.y) <= radius + this.boss.radius) {
+          this.boss.damage(damage * 0.6, Math.atan2(this.boss.y - this.player.y, this.boss.x - this.player.x), {});
+          hit = true;
+        }
+      }
+      if (hit) {
+        this.audio.play('explode');
+        this.addScreenShake(2.6, 0.12);
+      }
+    }
+
     addScreenShake(magnitude, duration) {
       if (NO.Storage.get('shake') === false) return;
       this.shakeMagnitude = Math.max(this.shakeMagnitude, magnitude || 3);
@@ -600,6 +719,10 @@
     getStageInfo() {
       if (this.boss && !this.boss.dead) {
         return { label: this.boss.isFinal ? 'FINAL CORE // OMEGA' : 'BOSS // ' + this.boss.name.split(' ')[0] };
+      }
+      if (this.mode === MODE.ENDLESS && this.elapsed >= BOSS_TWO_TIME) {
+        // 无尽模式没有「终局」可言，阶段标签改成波次，给玩家一个不断往上走的刻度。
+        return { label: 'ENDLESS · WAVE ' + String(this.endlessCycle + 1).padStart(2, '0') };
       }
       if (this.elapsed < 60) return { label: 'PHASE 01 · 接触' };
       if (this.elapsed < 120) return { label: 'PHASE 02 · 压制' };
@@ -651,13 +774,17 @@
         if (this.player && this.player.volatileLevel > 0 && Math.random() < this.player.volatileChance) {
           this.detonateVolatile(enemy);
         }
+        // 能量汲取：击杀回血，让「清怪效率」本身变成续航手段。
+        if (this.player && this.player.lifesteal > 0) {
+          this.player.healQuiet(this.player.lifesteal);
+        }
       }
 
       if (!opts.silentDeath) {
         const scale = enemy.isElite ? 1.9 : enemy.kind === 'tank' ? 1.35 : 1;
         this.particles.enemyDeath(enemy.x, enemy.y, enemy.color, scale);
         this.particles.ring(enemy.x, enemy.y, enemy.accent || enemy.color, 6, 60 * scale, 0.42, 2);
-        this.audio.play(enemy.isElite || enemy.kind === 'tank' ? 'explode' : 'kill');
+        this.playKillSound(enemy);
         if (enemy.isElite) this.addScreenShake(6, 0.24);
       }
 
@@ -670,6 +797,31 @@
           this.orbs.push(new XPOrb(enemy.x, enemy.y, 0, '#5cffb2', enemy.isElite ? 18 : 10));
         }
         this.addScore(Math.round(enemy.score * 0.15));
+      }
+    }
+
+    // 击杀音效分层：不同机体用不同的基频与包络，连杀越高音调越高。
+    // 全部走既有 Web Audio 引擎，不新增素材文件。
+    playKillSound(enemy) {
+      const combo = Math.min(6, Math.max(0, this.comboCount - 1));
+      if (enemy.isElite) {
+        this.audio.play('explode');
+        this.audio.play('eliteKill', { detune: combo });
+      } else if (enemy.kind === 'tank') {
+        this.audio.play('explode');
+        this.audio.play('killHeavy', { detune: combo });
+      } else if (enemy.kind === 'bomber') {
+        this.audio.play('killPop', { detune: combo });
+      } else if (enemy.kind === 'sniper') {
+        this.audio.play('killZap', { detune: combo });
+      } else if (enemy.kind === 'drone') {
+        this.audio.play('killLight', { detune: combo });
+      } else {
+        this.audio.play('kill');
+      }
+      // 连杀达到里程碑时再叠一层上扬的确认音，和屏幕上的 KILL 文案同步。
+      if (this.comboCount === 5 || this.comboCount === 10) {
+        this.audio.play('comboUp');
       }
     }
 
@@ -711,10 +863,18 @@
 
     /* ---------------- boss flow ---------------- */
 
-    spawnBoss(isFinal) {
+    spawnBoss(isFinal, hpScale) {
       if (this.boss) return;
+      const scale = typeof hpScale === 'number' && hpScale > 0 ? hpScale : 1;
       const boss = isFinal ? new NO.BossOmega(this) : new NO.BossJudge(this);
       boss.isFinal = Boolean(isFinal);
+      if (scale !== 1) {
+        // 无尽模式循环 BOSS：按轮次整体加厚，同时补一点接触伤害，
+        // 否则后期只是一堵更肉的墙，威胁度没有实际提升。
+        boss.maxHp = Math.round(boss.maxHp * scale);
+        boss.hp = boss.maxHp;
+        boss.contactDamage = Math.round(boss.contactDamage * Math.min(1.8, 1 + (scale - 1) * 0.5));
+      }
       this.boss = boss;
       // 清场：BOSS 登场前遗留的杂兵会立刻把玩家淹没，只保留少量作为陪衬。
       const keep = 8;
@@ -802,6 +962,18 @@
         this.ui.showBossBar(null);
       }
 
+      if (this.mode === MODE.ENDLESS) {
+        // 无尽模式：击破 BOSS 只是清掉一波，接下来进入更长的间歇再刷新更强的一只。
+        this.endlessCycle += 1;
+        this.nextBossAt = this.elapsed + Math.max(38, 62 - this.endlessCycle * 3);
+        this.addScore(6000 + this.endlessCycle * 1500);
+        if (this.player) this.player.heal(Math.round(this.player.maxHp * 0.25));
+        this.showToast('WAVE ' + (this.endlessCycle < 10 ? '0' : '') + this.endlessCycle + ' 肃清 · 下一波即将接入', 'gold');
+        if (this.ui) this.ui.updateHud();
+        this.state = STATE.PLAYING;
+        return;
+      }
+
       if (isFinal) {
         this.timerFrozen = true;
         this.finishRun(true);
@@ -823,10 +995,15 @@
       const t = Math.min(this.elapsed, 360) / 360;
       // 玩家的清怪速度约 30~80/分钟，生成速率必须留出操作空间，否则场面必然失控。
       let base = 2.6 - t * 1.0;
+      // 无尽模式：越过六分钟后继续缓慢加压，但设底线，保证屏幕始终可读。
+      if (this.mode === MODE.ENDLESS && this.elapsed > BOSS_TWO_TIME) {
+        const extra = (this.elapsed - BOSS_TWO_TIME) / 60;
+        base -= Math.min(0.55, extra * 0.06);
+      }
       // BOSS 战期间大幅放缓增援：玩家的注意力要留给预警和弹幕，不是清杂兵。
       if (this.boss) base += 1.7;
       if (this.isMobile) base += 0.25;
-      return Math.max(0.75, base);
+      return Math.max(0.55, base);
     }
 
     // BOSS 战期间压缩小怪上限，否则满屏杂兵会淹没 BOSS 与弹幕，玩家无从走位。
@@ -923,15 +1100,31 @@
       // Boss triggers
       if (!this.firstBossSpawned && this.elapsed >= BOSS_ONE_TIME) {
         this.firstBossSpawned = true;
-        this.spawnBoss(false);
+        this.spawnBoss(false, 1);
         return;
       }
-      if (!this.finalBossSpawned && this.elapsed >= BOSS_TWO_TIME) {
+      if (this.mode === MODE.ENDLESS) {
+        // 无尽模式下 360 秒不是终点，而是「OMEGA 解锁」的里程碑；
+        // 真正的 BOSS 全部由下面的循环调度负责，保证场上永远只有一只。
+        if (!this.omegaUnlocked && this.elapsed >= BOSS_TWO_TIME) {
+          this.omegaUnlocked = true;
+          this.finalBossSpawned = true;
+          this.showToast('终局核心 OMEGA 已解锁 · 循环协议升级', 'danger');
+        }
+        // 上一只被击破后倒计时，到点再来一只，血量逐轮变厚；
+        // OMEGA 解锁后与 JUDGE-09 交替登场。
+        if (this.endlessCycle > 0 && !this.boss && this.elapsed >= this.nextBossAt) {
+          // cycle 为偶数时轮到 OMEGA（第 2、4、6 波），奇数时是 JUDGE-09。
+          const useOmega = this.omegaUnlocked && this.endlessCycle % 2 === 0;
+          this.spawnBoss(useOmega, 1 + this.endlessCycle * 0.55);
+          return;
+        }
+      } else if (!this.finalBossSpawned && this.elapsed >= BOSS_TWO_TIME) {
         this.finalBossSpawned = true;
         // OMEGA 的登场不允许被幸存的第一 BOSS 阻塞：旧 BOSS 被核心吞并后清场。
         if (this.boss && !this.boss.dead) this.retireBossForFinale(this.boss);
         this.timerFrozen = true;
-        this.spawnBoss(true);
+        this.spawnBoss(true, 1);
         return;
       }
 
@@ -975,7 +1168,12 @@
           if (!bullet.hit(enemy)) continue;
           const distance = Math.sqrt(dx * dx + dy * dy) || 1;
           const hitAngle = Math.atan2(dy, dx);
-          enemy.damage(bullet.damage, hitAngle, {
+          // 处决协议：目标残血时追加伤害，把清场效率变成可见的数值差异。
+          let dealt = bullet.damage;
+          if (bullet.executeBonus > 0 && enemy.hp / enemy.maxHp <= 0.3) {
+            dealt = bullet.damage * (1 + bullet.executeBonus);
+          }
+          enemy.damage(dealt, hitAngle, {
             frostChance: bullet.frostChance,
             knockback: bullet.crit ? 90 : 52
           });
@@ -983,13 +1181,19 @@
           this.particles.damageText(
             enemy.x + U.rand(-6, 6),
             enemy.y - enemy.radius - 4,
-            Math.round(bullet.damage),
+            Math.round(dealt),
             bullet.crit ? '#ffd166' : '#bff7ff',
             bullet.crit,
             // 伤害越高数字越大：暴击基础 1.35 倍，再按伤害量微调，重击更有存在感。
             bullet.crit ? 1.35 + Math.min(0.5, bullet.damage / 220) : 1
           );
           this.audio.play(bullet.crit ? 'crit' : 'hit');
+          if (bullet.ricochet > 0 && this.redirectBullet(bullet, enemy)) {
+            bullet.ricochet -= 1;
+            bullet.damage *= 0.72;
+            bullet.life = Math.max(bullet.life, 0.5);
+            break;
+          }
           if (bullet.pierce > 0) {
             bullet.pierce -= 1;
             bullet.damage *= 0.85;
@@ -1137,6 +1341,7 @@
     finishRun(victory) {
       if (this.state === STATE.GAME_OVER || this.state === STATE.VICTORY) return;
       const wasLevelUp = this.state === STATE.LEVEL_UP;
+      const endless = this.mode === MODE.ENDLESS;
       this.state = victory ? STATE.VICTORY : STATE.GAME_OVER;
       this.runActive = false;
 
@@ -1149,10 +1354,12 @@
       const record = NO.Storage.recordRun({
         score: finalScore,
         time: this.elapsed,
-        kills: this.kills
+        kills: this.kills,
+        mode: this.mode,
+        wave: this.endlessCycle
       });
 
-      const grade = this.computeGrade(finalScore, victory);
+      const grade = this.computeGrade(finalScore, victory, endless);
       this.audio.play(victory ? 'victory' : 'gameover');
       this.addScreenShake(victory ? 12 : 8, 0.6);
 
@@ -1162,6 +1369,8 @@
         this.ui.hideBossBar();
         this.ui.showResult({
           victory: Boolean(victory),
+          endless,
+          wave: this.endlessCycle,
           grade,
           time: this.elapsed,
           kills: this.kills,
@@ -1177,7 +1386,16 @@
       NO.Input.resetJoystick();
     }
 
-    computeGrade(score, victory) {
+    computeGrade(score, victory, endless) {
+      if (endless) {
+        // 无尽模式没有终点，评级只看撑了多久：越久越难，所以按时长而不是分数。
+        const minutes = this.elapsed / 60;
+        if (minutes >= 14) return 'S';
+        if (minutes >= 10) return 'A';
+        if (minutes >= 7.5) return 'B';
+        if (minutes >= 6) return 'C';
+        return 'D';
+      }
       const total = score + (victory ? 8000 : 0);
       if (total >= 62000) return 'S';
       if (total >= 42000) return 'A';
@@ -1369,5 +1587,6 @@
 
   NO.Game = Game;
   NO.STATE = STATE;
+  NO.MODE = MODE;
   NO.RUN_DURATION = RUN_DURATION;
 })();

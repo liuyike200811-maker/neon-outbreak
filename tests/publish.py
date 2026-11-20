@@ -21,7 +21,7 @@ API_HOST = "api.github.com"
 OWNER = "liuyike200811-maker"
 REPO = "neon-outbreak"
 BRANCH = "main"
-COMMIT_MSG = "0.0.1 — NEON OUTBREAK 霓虹禁区：最后防线 首个公开版本"
+COMMIT_MSG = "1.2.0 · NEON OUTBREAK 更新：无尽模式、升级卡数值预览、敌人血条、击杀音效分层、强化池扩至 22 项"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

@@ -73,15 +73,51 @@
       this.volatileRadius = 92;
       this.volatileDamage = 50;
 
+      // ---- 进阶模块（v19 扩展升级池）----
+      this.critDamageLevel = 0;
+      this.lifestealLevel = 0;
+      this.lifesteal = 0;
+      this.thornsLevel = 0;
+      this.thornsRatio = 0;
+      this.shieldLevel = 0;
+      this.maxShield = 0;
+      this.shieldCharges = 0;
+      this.shieldTimer = 0;
+      this.shieldCooldown = 11;
+      this.shieldFlash = 0;
+      this.homingLevel = 0;
+      this.homingStrength = 0;
+      this.dashBlastLevel = 0;
+      this.dashBlastDamage = 0;
+      this.dashBlastRadius = 92;
+      this.xpLevel = 0;
+      this.xpMult = 1;
+      this.dashCoolLevel = 0;
+      this.executeLevel = 0;
+      this.executeBonus = 0;
+      this.ricochetLevel = 0;
+      this.ricochet = 0;
+
       this.trail = [];
       this.trailTick = 0;
       this.contactPulse = 0;
     }
 
     recalculateStats() {
-      this.empLevel = this.upgradeLevels.emp || 0;
-      this.frostLevel = this.upgradeLevels.frost || 0;
-      this.volatileLevel = this.upgradeLevels.volatile || 0;
+      const lv = this.upgradeLevels;
+      this.empLevel = lv.emp || 0;
+      this.frostLevel = lv.frost || 0;
+      this.volatileLevel = lv.volatile || 0;
+      this.critDamageLevel = lv.critdmg || 0;
+      this.lifestealLevel = lv.lifesteal || 0;
+      this.thornsLevel = lv.thorns || 0;
+      this.shieldLevel = lv.shield || 0;
+      this.homingLevel = lv.homing || 0;
+      this.dashBlastLevel = lv.dashblast || 0;
+      this.xpLevel = lv.xpboost || 0;
+      this.dashCoolLevel = lv.dashcool || 0;
+      this.executeLevel = lv.execute || 0;
+      this.ricochetLevel = lv.ricochet || 0;
 
       this.damage = Math.max(1, this.baseDamage * this.damageMult);
       this.attackInterval = Math.max(0.08, this.baseAttackInterval * this.attackIntervalMult);
@@ -89,12 +125,27 @@
       this.critChance = Math.min(0.7, this.critChance);
       this.pickupRange = Math.min(380, 160 * this.pickupRangeMult);
 
+      // 暴击倍率由「过载核心」驱动，基础 1.5，每级 +0.25，最多 3 级 → 2.25。
+      this.critMultiplier = 1.5 + this.critDamageLevel * 0.25;
+
       this.empRadius = 106 + this.empLevel * 14;
       this.empDamage = 20 + this.empLevel * 6;
       this.frostChance = this.frostLevel > 0 ? 0.12 + this.frostLevel * 0.08 : 0;
       this.volatileChance = this.volatileLevel > 0 ? 0.1 + this.volatileLevel * 0.1 : 0;
       this.volatileRadius = 92;
       this.volatileDamage = 50 + this.volatileLevel * 10;
+
+      this.lifesteal = this.lifestealLevel * 2;
+      this.thornsRatio = this.thornsLevel * 0.4;
+      this.maxShield = this.shieldLevel;
+      this.shieldCharges = Math.min(this.shieldCharges, this.maxShield);
+      this.homingStrength = this.homingLevel * 2.6;
+      this.dashBlastDamage = this.dashBlastLevel > 0 ? 24 + this.dashBlastLevel * 16 : 0;
+      this.xpMult = 1 + this.xpLevel * 0.25;
+      this.executeBonus = this.executeLevel * 1;
+      this.ricochet = this.ricochetLevel;
+      // 冲刺冷却的硬下限 1.2 秒，避免叠加后变成无限相位。
+      this.dashCooldown = Math.max(1.2, 3 * (1 - this.dashCoolLevel * 0.2));
     }
 
     isInvulnerable() {
@@ -119,10 +170,34 @@
       return healed;
     }
 
+    // 静默回血：击杀吸血这类高频来源不弹数字、不闪屏，避免刷屏。
+    healQuiet(amount) {
+      const before = this.hp;
+      this.hp = Math.min(this.maxHp, this.hp + Math.max(0, amount));
+      return this.hp - before;
+    }
+
     hurt(amount, sourceX, sourceY) {
       if (this.isInvulnerable()) return false;
       if (!this.game || this.game.state !== 'PLAYING') return false;
       const damage = Math.max(1, Math.round(amount));
+
+      // 力场护盾优先吸收：一层护盾完全抵消一次伤害，然后重新开始充能。
+      if (this.shieldCharges > 0) {
+        this.shieldCharges -= 1;
+        this.shieldTimer = this.shieldCooldown;
+        this.shieldFlash = 0.35;
+        this.invuln = 0.6;
+        this.sinceHurt = 0;
+        this.game.particles.ring(this.x, this.y, '#7cc4ff', 12, 74, 0.42, 3);
+        this.game.particles.burst(this.x, this.y, '#7cc4ff', 16, 180, 2.8, 0.45, 'spark');
+        this.game.particles.damageText(this.x, this.y - 24, 'BLOCK', '#7cc4ff', true, 1.1);
+        this.game.audio.play('shield');
+        this.game.addScreenShake(3, 0.14);
+        if (this.game.ui) this.game.ui.updateHud();
+        return 'blocked';
+      }
+
       this.hp = Math.max(0, this.hp - damage);
       this.invuln = 0.6;
       this.flashTimer = 0.2;
@@ -136,6 +211,10 @@
       if (direction.length > 0.01) {
         this.vx += direction.x * 105;
         this.vy += direction.y * 105;
+      }
+      // 反制装甲：把接触伤害的一部分原路反弹给攻击者。
+      if (this.thornsRatio > 0 && sourceX !== undefined && this.game) {
+        this.game.reflectDamage(sourceX, sourceY, damage * this.thornsRatio);
       }
       this.game.onPlayerHurt(damage);
       if (this.hp <= 0) {
@@ -186,6 +265,18 @@
         this.hp = Math.min(this.maxHp, this.hp + regen);
       }
       if (this.muzzleFlash > 0) this.muzzleFlash = Math.max(0, this.muzzleFlash - dt);
+      if (this.shieldFlash > 0) this.shieldFlash = Math.max(0, this.shieldFlash - dt);
+      // 力场护盾充能：只有装备了「力场护盾」才会累积层数。
+      if (this.maxShield > 0 && this.shieldCharges < this.maxShield) {
+        this.shieldTimer -= dt;
+        if (this.shieldTimer <= 0) {
+          this.shieldTimer = this.shieldCooldown;
+          this.shieldCharges += 1;
+          this.game.particles.ring(this.x, this.y, '#7cc4ff', 6, 46, 0.42, 2);
+          this.game.particles.label(this.x, this.y - 30, 'SHIELD', '#7cc4ff', 11);
+          if (this.game.ui) this.game.ui.updateHud();
+        }
+      }
       if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 8);
       if (this.dashCooldownTimer > 0) this.dashCooldownTimer = Math.max(0, this.dashCooldownTimer - dt);
       if (this.dashGrace > 0 && this.dashTimer <= 0) {
@@ -202,7 +293,11 @@
 
       if (this.dashTimer > 0) {
         this.dashTimer = Math.max(0, this.dashTimer - dt);
-        if (this.dashTimer <= 0) this.dashGrace = this.dashGraceDuration;
+        if (this.dashTimer <= 0) {
+          this.dashGrace = this.dashGraceDuration;
+          // 相位冲击：冲刺收尾时释放一圈电磁爆，把贴脸追兵推开。
+          if (this.dashBlastDamage > 0) this.game.triggerDashBlast(this.dashBlastRadius, this.dashBlastDamage);
+        }
         const speed = this.speed * 3;
         this.x += this.dashDirX * speed * dt;
         this.y += this.dashDirY * speed * dt;
@@ -311,6 +406,9 @@
           crit,
           pierce: this.pierce,
           frostChance: this.frostChance,
+          homing: this.homingStrength,
+          ricochet: this.ricochet,
+          executeBonus: this.executeBonus,
           color: crit ? '#ffd166' : '#9dfbff'
         });
       }
@@ -382,6 +480,31 @@
         ctx.arc(0, 0, (phasing ? 26 : 24) + Math.sin(t * 6) * 1.5, 0, TAU);
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+
+      // 力场护盾：每层一颗环绕的六边形节点，命中吸收时整圈爆亮。
+      if (this.shieldCharges > 0 || this.shieldFlash > 0) {
+        const boost = this.shieldFlash > 0 ? this.shieldFlash / 0.35 : 0;
+        for (let s = 0; s < Math.max(this.shieldCharges, 1); s += 1) {
+          const a = t * 1.6 + (s * TAU) / Math.max(1, this.maxShield);
+          const ox = Math.cos(a) * 22;
+          const oy = Math.sin(a) * 22;
+          ctx.globalAlpha = 0.55 + boost * 0.4;
+          ctx.strokeStyle = '#7cc4ff';
+          ctx.lineWidth = 1.4 + boost * 1.6;
+          ctx.beginPath();
+          ctx.arc(ox, oy, 3.4 + boost * 2, 0, TAU);
+          ctx.stroke();
+        }
+        if (boost > 0) {
+          ctx.globalAlpha = boost * 0.6;
+          ctx.strokeStyle = '#a8dcff';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.arc(0, 0, 26 + (1 - boost) * 12, 0, TAU);
+          ctx.stroke();
+        }
         ctx.globalAlpha = 1;
       }
 

@@ -17,7 +17,7 @@
     const g = window.NO.game;
     if (!g) throw new Error('NO.game 不可用，请以 ?test=1 打开');
     if (g.state !== 'MENU') { try { g.backToMenu(); } catch (e) { /* 忽略 */ } }
-    g.start();
+    g.start(opts.mode === 'endless' ? 'endless' : 'standard');
 
     const choose = () => {
       const cards = g.levelChoices || [];
@@ -38,6 +38,7 @@
     let ang = 0;
     let prevBoss = null;
     let b1At = null; let b1Down = null; let b2At = null; let b2Down = null; let win = null;
+    let maxWave = 0;
     const samples = [];
     const dmg = {};
 
@@ -119,7 +120,7 @@
         NO.Input.touchActive = true;
         NO.Input.touchVector = l > 0.01 ? { x: ax / l, y: ay / l } : { x: 0, y: 0 };
         const danger = (nearest && nd < 110) || closestBullet < 70;
-        if (danger && p.dashCooldownTimer <= 0) NO.Input.pressed.Space = true;
+        if (danger && p.dashCooldownTimer <= 0) NO.Input.pressed.Enter = true;
       }
       g.update(1 / 60);
       frames += 1;
@@ -134,6 +135,7 @@
         if (!prevBoss.isFinal && b1Down === null) b1Down = Math.round(g.elapsed);
       }
       prevBoss = g.boss;
+      if (g.endlessCycle > maxWave) maxWave = g.endlessCycle;
       if (g.state === 'VICTORY' && win === null) win = Math.round(g.elapsed);
       if (g.state === 'VICTORY' || g.state === 'GAME_OVER') break;
       if (frames % 1800 === 0) {
@@ -152,7 +154,8 @@
     NO.Input.touchActive = false;
     g.player.hurt = origHurt;
     return {
-      b1At, b1Down, b2At, b2Down, win,
+      b1At, b1Down, b2At, b2Down, win, maxWave,
+      mode: g.mode,
       final: g.state,
       secs: Math.round(frames / 60),
       score: g.score,

@@ -10,6 +10,9 @@
     longestTime: 0,
     totalKills: 0,
     gamesPlayed: 0,
+    endlessHighScore: 0,
+    endlessBestTime: 0,
+    endlessBestWave: 0,
     soundOn: true,
     volume: 0.7,
     shake: true,
@@ -33,6 +36,9 @@
       longestTime: numberIn(raw.longestTime, 0, 0, 86400),
       totalKills: Math.floor(numberIn(raw.totalKills, 0, 0, 999999999)),
       gamesPlayed: Math.floor(numberIn(raw.gamesPlayed, 0, 0, 999999)),
+      endlessHighScore: Math.floor(numberIn(raw.endlessHighScore, 0, 0, 999999999)),
+      endlessBestTime: numberIn(raw.endlessBestTime, 0, 0, 864000),
+      endlessBestWave: Math.floor(numberIn(raw.endlessBestWave, 0, 0, 9999)),
       soundOn: raw.soundOn !== false,
       volume: numberIn(raw.volume, 0.7, 0, 1),
       shake: raw.shake !== false,
@@ -96,18 +102,29 @@
     const score = Math.max(0, Math.floor(Number(run.score) || 0));
     const time = Math.max(0, Number(run.time) || 0);
     const kills = Math.max(0, Math.floor(Number(run.kills) || 0));
-    const previousBest = data.highScore;
+    const endless = run.mode === 'endless';
+    const wave = Math.max(0, Math.floor(Number(run.wave) || 0));
+
+    // 无尽模式的成绩单独归档：它的时长与分数没有上界，混进标准任务的纪录里
+    // 会让「六分钟通达」的历史最高分永久不可超越。
+    const previousBest = endless ? data.endlessHighScore : data.highScore;
     const newRecord = score > previousBest;
-    data.highScore = Math.max(previousBest, score);
-    data.longestTime = Math.max(data.longestTime, time);
+    if (endless) {
+      data.endlessHighScore = Math.max(previousBest, score);
+      data.endlessBestTime = Math.max(data.endlessBestTime, time);
+      data.endlessBestWave = Math.max(data.endlessBestWave, wave);
+    } else {
+      data.highScore = Math.max(previousBest, score);
+      data.longestTime = Math.max(data.longestTime, time);
+    }
     data.totalKills += kills;
     data.gamesPlayed += 1;
     save();
     return {
       newRecord,
       previousBest,
-      highScore: data.highScore,
-      longestTime: data.longestTime,
+      highScore: endless ? data.endlessHighScore : data.highScore,
+      longestTime: endless ? data.endlessBestTime : data.longestTime,
       totalKills: data.totalKills,
       gamesPlayed: data.gamesPlayed
     };

@@ -492,6 +492,50 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--cyan); outl
   background: linear-gradient(90deg, rgba(0, 229, 255, 0.035), transparent);
 }
 
+/* 无尽纪录单独一条，用紫色区分：它和标准任务的纪录互不影响 */
+.endless-strip {
+  margin-top: 10px;
+  border-top-color: rgba(150, 91, 255, 0.2);
+  border-bottom-color: rgba(150, 91, 255, 0.1);
+  background: linear-gradient(90deg, rgba(150, 91, 255, 0.05), transparent);
+}
+.endless-strip .record-cell strong { text-shadow: 0 0 16px rgba(150, 91, 255, 0.3); }
+
+/* 模式切换：两颗并列的协议开关，选中一颗时边框点亮并给出内发光 */
+.mode-strip { display: flex; gap: 8px; margin-top: clamp(20px, 3.4vh, 34px); max-width: 610px; }
+.mode-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--muted);
+  background: rgba(9, 14, 26, 0.55);
+  border: 1px solid rgba(127, 148, 180, 0.2);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
+}
+.mode-btn:hover { border-color: rgba(0, 229, 255, 0.5); color: #d6f6ff; transform: translateY(-1px); }
+.mode-btn:active { transform: translateY(0); }
+.mode-btn .mode-name { font-size: 13px; letter-spacing: 0.06em; color: #cfe4ef; }
+.mode-btn .mode-meta { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.09em; opacity: 0.75; }
+.mode-btn.is-active {
+  border-color: rgba(0, 229, 255, 0.62);
+  color: var(--cyan);
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.14), rgba(0, 229, 255, 0.03));
+  box-shadow: inset 0 0 22px rgba(0, 229, 255, 0.1);
+}
+.mode-btn.is-active .mode-name { color: #eafcff; text-shadow: 0 0 14px rgba(0, 229, 255, 0.45); }
+.mode-btn[data-mode="endless"].is-active {
+  border-color: rgba(150, 91, 255, 0.66);
+  background: linear-gradient(135deg, rgba(150, 91, 255, 0.16), rgba(150, 91, 255, 0.03));
+  box-shadow: inset 0 0 22px rgba(150, 91, 255, 0.12);
+}
+.mode-btn[data-mode="endless"].is-active .mode-name { text-shadow: 0 0 14px rgba(150, 91, 255, 0.5); }
+
 .record-cell {
   display: flex;
   flex-direction: column;
@@ -1130,6 +1174,15 @@ kbd.wide { min-width: 55px; }
 .upgrade-card h3 { position: relative; z-index: 1; margin: 18px 0 3px; font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: 0.07em; color: #f1fbff; }
 .upgrade-en { position: relative; z-index: 1; font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.13em; color: var(--muted); margin: 0; }
 .upgrade-desc { position: relative; z-index: 1; color: rgba(207, 231, 243, 0.76); font-size: 11px; line-height: 1.7; margin: 15px 0 0; min-height: 54px; }
+/* 「装之前 ▸ 装之后」的真实数值对照，颜色用卡片自身的稀有度变量 */
+.upgrade-preview { position: relative; z-index: 1; margin-top: 12px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--rarity) 22%, transparent); background: color-mix(in srgb, var(--rarity) 5%, rgba(0, 0, 0, 0.28)); }
+.preview-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: baseline; gap: 6px; font-family: var(--font-mono); font-size: 9px; line-height: 1.85; }
+.preview-row + .preview-row { margin-top: 2px; }
+.preview-label { color: rgba(127, 148, 180, 0.82); letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preview-from { color: rgba(160, 182, 205, 0.62); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--rarity) 45%, transparent); }
+.preview-arrow { color: color-mix(in srgb, var(--rarity) 65%, transparent); font-size: 7px; }
+.preview-value { color: #eafcff; letter-spacing: 0.02em; }
+.preview-value.is-up { color: var(--rarity); text-shadow: 0 0 10px color-mix(in srgb, var(--rarity) 45%, transparent); }
 .upgrade-levels { margin-top: auto; padding-top: 14px; position: relative; z-index: 1; }
 .level-pips { display: flex; gap: 3px; margin-bottom: 8px; }
 .level-pips i { display: block; height: 3px; flex: 1; background: rgba(127, 148, 180, 0.17); transition: background 0.2s; }
@@ -1295,6 +1348,8 @@ kbd.wide { min-width: 55px; }
   .upgrade-grid { gap: 10px; }
   .upgrade-card { padding: 16px; min-height: 280px; }
   .upgrade-desc { font-size: 10px; }
+  .upgrade-preview { padding: 7px 8px; margin-top: 9px; }
+  .preview-row { font-size: 8px; gap: 5px; }
 }
 
 @media (max-width: 760px) {
@@ -1311,6 +1366,13 @@ kbd.wide { min-width: 55px; }
   .btn-copy b { font-size: 14px; }
   .menu-actions .btn:nth-of-type(1) { max-width: none; }
   .menu-actions .btn:nth-of-type(2), .menu-actions .btn:nth-of-type(3) { flex-basis: 140px; }
+  .mode-strip { margin-top: 18px; gap: 6px; }
+  .mode-btn { padding: 8px 10px; }
+  .mode-btn .mode-name { font-size: 11px; }
+  .mode-btn .mode-meta { font-size: 6px; letter-spacing: 0.05em; }
+  .endless-strip { margin-top: 6px; }
+  .endless-strip .record-cell { padding-top: 7px; padding-bottom: 7px; }
+  .endless-strip .record-cell strong { font-size: 13px; }
   .record-strip { margin-top: 26px; }
   .record-cell { min-width: 0; flex: 1; padding: 10px 9px 10px 0; margin-right: 9px; }
   .record-cell strong { font-size: 15px; }
@@ -1380,6 +1442,8 @@ kbd.wide { min-width: 55px; }
   .upgrade-card h3 { font-size: 16px; margin-top: 11px; }
   .upgrade-en { font-size: 6px; }
   .upgrade-desc { font-size: 8px; line-height: 1.5; min-height: 49px; margin-top: 10px; }
+  .upgrade-preview { padding: 6px 6px; margin-top: 7px; }
+  .preview-row { font-size: 7px; gap: 4px; line-height: 1.7; }
   .upgrade-levels { padding-top: 8px; }
   .upgrade-level-text { font-size: 6px; }
   .install-cue { margin-top: 8px; padding-top: 7px; font-size: 6px; }
@@ -1454,6 +1518,9 @@ kbd.wide { min-width: 55px; }
   .upgrade-card { min-height: 215px; padding: 8px; }
   .upgrade-card h3 { font-size: 13px; letter-spacing: 0.02em; }
   .upgrade-desc { font-size: 7px; min-height: 44px; }
+  .upgrade-preview { padding: 5px 5px; margin-top: 6px; }
+  .preview-row { font-size: 6px; gap: 3px; line-height: 1.6; }
+  .preview-from { max-width: 40%; }
   .upgrade-icon { width: 29px; height: 29px; }
   .upgrade-icon svg { width: 16px; height: 16px; }
   .rarity-badge { display: none; }
@@ -1469,6 +1536,9 @@ kbd.wide { min-width: 55px; }
   .tagline { margin-top: 11px; font-size: 10px; }
   .menu-actions { margin-top: 15px; gap: 6px; }
   .btn { min-height: 46px; }
+  .mode-strip { margin-top: 12px; }
+  .mode-btn { padding: 7px 10px; }
+  .endless-strip { margin-top: 6px; }
   .record-strip { margin-top: 15px; }
   .record-cell { padding-top: 7px; padding-bottom: 7px; }
   .menu-footer { display: none; }
@@ -1526,6 +1596,25 @@ kbd.wide { min-width: 55px; }
   .pause-mini-stats { margin-top: 10px; padding: 7px 0; }
   .modal-actions { margin-top: 13px; gap: 5px; }
   .modal-actions .btn { min-height: 43px; }
+}
+
+/* 竖屏手机：三列会压到 110px 宽，改单列纵向排列并可滚动，
+   阅读体验比挤成三根竖条好得多。横屏仍然走三列。 */
+@media (max-width: 560px) and (orientation: portrait) {
+  .levelup-screen {
+    place-items: start center;
+    overflow-y: auto;
+    padding-top: calc(var(--safe-top) + 16px);
+    padding-bottom: calc(var(--safe-bottom) + 18px);
+  }
+  .upgrade-grid { grid-template-columns: 1fr; gap: 9px; }
+  .upgrade-card { min-height: 0; padding: 13px 14px; }
+  .upgrade-card h3 { font-size: 18px; margin-top: 8px; }
+  .upgrade-desc { font-size: 9px; min-height: 0; margin-top: 7px; }
+  .upgrade-preview { padding: 7px 9px; margin-top: 9px; }
+  .preview-row { font-size: 8px; gap: 6px; }
+  .rarity-badge { font-size: 6px; }
+  .choose-hint { display: block; margin-top: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
